@@ -26,7 +26,8 @@ export function DiagramPane({ module }: { module: VizModule<unknown> }) {
   // Initial state for the very first paint, before any run commits.
   const initial = useMemo(() => module.engine.init(), [module])
 
-  const current = steps.length > 0 ? Math.min(index, steps.length - 1) : -1
+  // The store uses index -1 when there is no timeline to show.
+  const current = steps.length > 0 ? Math.max(0, Math.min(index, steps.length - 1)) : -1
   const step = current >= 0 ? steps[current] : undefined
   const prevStep = current > 0 ? steps[current - 1] : undefined
 

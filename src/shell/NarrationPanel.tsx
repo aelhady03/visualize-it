@@ -8,8 +8,10 @@ import { usePlayerStore } from '@core/player/store'
 
 export function NarrationPanel() {
   const { steps, index } = usePlayerStore()
-  const step = steps.length > 0 ? steps[Math.min(index, steps.length - 1)] : undefined
-  const stepNumber = steps.length > 0 ? Math.min(index, steps.length - 1) + 1 : 0
+  // The store uses index -1 when there is no timeline to show.
+  const hasStep = steps.length > 0 && index >= 0
+  const step = hasStep ? steps[Math.min(index, steps.length - 1)] : undefined
+  const stepNumber = hasStep ? Math.min(index, steps.length - 1) + 1 : 0
 
   return (
     <aside

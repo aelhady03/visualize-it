@@ -61,7 +61,8 @@ export function StepperControls() {
   const count = steps.length
   const empty = count === 0
   const max = Math.max(0, count - 1)
-  const clampedIndex = Math.min(index, max)
+  // The store uses index -1 when there is no timeline to show.
+  const clampedIndex = Math.max(0, Math.min(index, max))
   const nextChapter = chapters.find((c) => c.start > clampedIndex)
   const canReset = !empty || historyLength > 0
 

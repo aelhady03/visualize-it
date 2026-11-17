@@ -2,30 +2,36 @@
 // guided/sandbox mode toggle (PLAN.md §4).
 //
 // Operation buttons come from the module's declared `operations`; settings
-// controls from its `settings`. Guided operations start immediately; sandbox
-// operations with an inputSchema reveal a SandboxForm first (or the module's
-// InputForm override).
+// controls from its `settings`. Guided operations map to a guided scenario
+// (the store's guided runs are scenario-driven: startRun takes a scenarioId);
+// sandbox operations with an inputSchema reveal a SandboxForm first (or the
+// module's InputForm override).
 //
-// Playback state (mode, startRun) comes from the player store via
-// usePlayerStore(). The seam's brief lists no mode/settings mutators, so the
-// toggle and settings are wired through an optional-action shim: they call
-// setMode/setSetting when the store provides them and degrade to display-only
-// when it does not.
+// The mode toggle is a UI preference for the NEXT run: the player store
+// (lane A's seam) has no setMode action — its `mode` is set by `startRun`
+// itself. The store's current mode seeds the toggle on mount.
 
 import { useState } from 'react'
-import { usePlayerStore } from '@core/player/store'
-import type { FieldSpec, OpInput, Operation, SettingSpec } from '@core/engine-contract'
+import { usePlayerStore, type PlayerStore } from '@core/player/store'
+import type {
+  FieldSpec,
+  OpInput,
+  Operation,
+  Scenario,
+  SettingSpec,
+} from '@core/engine-contract'
 import { SandboxForm } from './SandboxForm'
+import { scenarioForOp } from './scenarioForOp'
 
-/** Optional seam extensions (reconciled against lane A's store at wiring time). */
-interface ExtendedActions {
-  setMode?(mode: 'guided' | 'sandbox'): void
-  setSetting?(id: string, value: string | number | boolean): void
-}
+type Mode = PlayerStore['mode']
 
 export interface OperationBarProps {
+  /** The module these operations belong to (startRun keys the store by it). */
+  moduleId: string
   operations: Operation[]
   settings: SettingSpec[]
+  /** Guided scenarios, for mapping operation buttons to scenario runs. */
+  scenarios: Scenario<unknown>[]
   /** Module-provided InputForm override (VizModule.InputForm). */
   inputForm?: React.ComponentType<{
     fields: FieldSpec[]
@@ -46,9 +52,15 @@ function defaultSettings(settings: SettingSpec[]): Record<string, string | numbe
   return Object.fromEntries(settings.map((s) => [s.id, s.default]))
 }
 
-export function OperationBar({ operations, settings, inputForm }: OperationBarProps) {
-  const { mode, actions } = usePlayerStore()
-  const extended = actions as typeof actions & ExtendedActions
+export function OperationBar({
+  moduleId,
+  operations,
+  settings,
+  scenarios,
+  inputForm,
+}: OperationBarProps) {
+  const { mode: storeMode, actions } = usePlayerStore()
+  const [mode, setMode] = useState<Mode>(() => storeMode)
 
   const [selectedOpId, setSelectedOpId] = useState<string | null>(null)
   const [values, setValues] = useState<OpInput>({})
@@ -66,20 +78,33 @@ export function OperationBar({ operations, settings, inputForm }: OperationBarPr
     // Selection always resets the form to this operation's schema defaults.
     setValues(defaultValues(op.inputSchema))
     setSelectedOpId(op.id)
+
     const opMode = op.mode === 'both' ? mode : op.mode
-    if (opMode === 'sandbox' && op.inputSchema) {
-      return // wait for the form's submit
+    if (opMode === 'sandbox') {
+      if (op.inputSchema) return // wait for the form's submit
+      actions.startRun(moduleId, opMode, { opId: op.id })
+      return
     }
-    actions.startRun(op.id, undefined)
+    // Guided: the store runs scenarios; start the scenario for this operation.
+    const scenario = scenarioForOp(scenarios, op)
+    if (scenario) actions.startRun(moduleId, opMode, { scenarioId: scenario.id })
   }
 
   const submit = () => {
-    if (selected) actions.startRun(selected.id, values)
+    if (selected) actions.startRun(moduleId, mode, { opId: selected.id, input: values })
   }
 
   const applySetting = (id: string, value: string | number | boolean) => {
+    // Display-only for now: the player store has no settings/config path yet
+    // (engine.init() is called without config). Wiring a setting change means
+    // resetting the module to init(newConfig) — a store-level change.
     setSettingValues((prev) => ({ ...prev, [id]: value }))
-    extended.setSetting?.(id, value)
+  }
+
+  const canRun = (op: Operation): boolean => {
+    const opMode = op.mode === 'both' ? mode : op.mode
+    if (opMode === 'sandbox') return true
+    return scenarioForOp(scenarios, op) !== undefined
   }
 
   return (
@@ -95,7 +120,7 @@ export function OperationBar({ operations, settings, inputForm }: OperationBarPr
               key={m}
               type="button"
               aria-pressed={mode === m}
-              onClick={() => extended.setMode?.(m)}
+              onClick={() => setMode(m)}
               className={[
                 'px-3 py-1 text-sm capitalize',
                 mode === m
@@ -110,23 +135,29 @@ export function OperationBar({ operations, settings, inputForm }: OperationBarPr
 
         <div className="h-6 w-px bg-neutral-300 dark:bg-neutral-700" aria-hidden="true" />
 
-        {operations.map((op) => (
-          <button
-            key={op.id}
-            type="button"
-            title={op.description}
-            aria-pressed={selected?.id === op.id}
-            onClick={() => run(op)}
-            className={[
-              'rounded-md border px-3 py-1 text-sm transition-colors',
-              selected?.id === op.id
-                ? 'border-sky-600 bg-sky-600 font-medium text-white'
-                : 'border-neutral-300 bg-white text-neutral-800 hover:border-sky-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200',
-            ].join(' ')}
-          >
-            {op.label}
-          </button>
-        ))}
+        {operations.map((op) => {
+          const enabled = canRun(op)
+          const opMode = op.mode === 'both' ? mode : op.mode
+          return (
+            <button
+              key={op.id}
+              type="button"
+              title={enabled ? op.description : `${op.description} (no guided scenario yet)`}
+              aria-pressed={selected?.id === op.id}
+              disabled={!enabled}
+              onClick={() => run(op)}
+              className={[
+                'rounded-md border px-3 py-1 text-sm transition-colors disabled:opacity-40',
+                selected?.id === op.id
+                  ? 'border-sky-600 bg-sky-600 font-medium text-white'
+                  : 'border-neutral-300 bg-white text-neutral-800 hover:border-sky-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200',
+                opMode === 'guided' ? 'italic' : '',
+              ].join(' ')}
+            >
+              {op.label}
+            </button>
+          )
+        })}
 
         {operations.length === 0 && (
           <p className="text-sm text-neutral-500 dark:text-neutral-400">No operations.</p>
@@ -176,6 +207,11 @@ export function OperationBar({ operations, settings, inputForm }: OperationBarPr
                       applySetting(setting.id, e.target.value === '' ? '' : Number(e.target.value))
                     }
                   />
+                )}
+                {setting.hint && (
+                  <span className="text-xs text-neutral-500 dark:text-neutral-500">
+                    {setting.hint}
+                  </span>
                 )}
               </label>
             )

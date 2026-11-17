@@ -70,8 +70,10 @@ function ViewerInner({ id }: { id: string }) {
   return (
     <div className="flex h-full flex-col gap-4">
       <OperationBar
+        moduleId={id}
         operations={module.operations}
         settings={module.settings}
+        scenarios={module.scenarios}
         inputForm={module.InputForm}
       />
 

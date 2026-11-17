@@ -12,16 +12,16 @@ import { collectEntityIds, diffHighlights } from './diff'
 import { DiagramPane, NarrationPanel, OperationBar, Sidebar, StepperControls } from './index'
 
 // --- Seam mocks: stable regardless of lane A's implementation details --------
+// Mirrors the real PlayerStore interface (src/core/player/store.ts).
 
-const seam = vi.hoisted(() => ({ mode: 'guided' as 'guided' | 'sandbox' }))
-
-vi.mock('@core/player/store', () => ({
-  usePlayerStore: () => ({
-    moduleId: null,
-    mode: seam.mode,
-    steps: [],
-    chapters: [],
-    index: 0,
+const seam = vi.hoisted(() => ({
+  store: {
+    moduleId: 'sstable' as string | null,
+    mode: 'guided' as 'guided' | 'sandbox',
+    run: null as { opId: string; input?: Record<string, string | number | boolean> } | { scenarioId: string } | null,
+    steps: [] as { kind: string; state: unknown; narration: string }[],
+    chapters: [] as { start: number; end: number; label: string }[],
+    index: -1,
     speed: 1,
     playing: false,
     historyLength: 0,
@@ -37,12 +37,12 @@ vi.mock('@core/player/store', () => ({
       undo: vi.fn(),
       reset: vi.fn(),
       onAnimationComplete: vi.fn(),
-      setMode: vi.fn((m: 'guided' | 'sandbox') => {
-        seam.mode = m
-      }),
-      setSetting: vi.fn(),
     },
-  }),
+  },
+}))
+
+vi.mock('@core/player/store', () => ({
+  usePlayerStore: () => seam.store,
 }))
 
 // Pre-sorted the way getModules() returns: by category, then meta.order.
@@ -131,7 +131,7 @@ function withRouter(ui: React.ReactNode) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  seam.mode = 'guided'
+  seam.store.mode = 'guided'
 })
 
 afterEach(cleanup)
@@ -212,22 +212,58 @@ describe('Sidebar', () => {
 
 describe('OperationBar', () => {
   it('renders operation buttons, the mode toggle and settings controls with an empty store', () => {
-    withRouter(<OperationBar operations={OPERATIONS} settings={SETTINGS} />)
+    withRouter(
+      <OperationBar moduleId="sstable" operations={OPERATIONS} settings={SETTINGS} scenarios={[]} />,
+    )
     expect(screen.getByRole('button', { name: 'Write' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Compact' })).toBeTruthy()
+    // 'Compact' is guided-only with no scenario: rendered but disabled.
+    expect((screen.getByRole('button', { name: 'Compact' }) as HTMLButtonElement).disabled).toBe(true)
     expect(screen.getByRole('button', { name: 'guided' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'sandbox' })).toBeTruthy()
     expect(screen.getByLabelText('Strategy')).toBeTruthy()
   })
 
   it('reveals the sandbox form for an operation that needs input in sandbox mode', () => {
-    withRouter(<OperationBar operations={OPERATIONS} settings={SETTINGS} />)
+    withRouter(
+      <OperationBar moduleId="sstable" operations={OPERATIONS} settings={SETTINGS} scenarios={[]} />,
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Write' }))
     // "Write" is mode 'both' and the (empty) store is in guided mode: no form.
     expect(screen.queryByLabelText(/Key/)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'sandbox' }))
     fireEvent.click(screen.getByRole('button', { name: 'Write' }))
     expect(screen.getByLabelText(/Key/)).toBeTruthy()
+  })
+
+  it('starts a sandbox run with the collected input on submit', () => {
+    withRouter(
+      <OperationBar moduleId="sstable" operations={OPERATIONS} settings={SETTINGS} scenarios={[]} />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'sandbox' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Write' }))
+    fireEvent.change(screen.getByLabelText(/Key/), { target: { value: 'alpha' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    expect(seam.store.actions.startRun).toHaveBeenCalledWith('sstable', 'sandbox', {
+      opId: 'write',
+      input: { key: 'alpha' },
+    })
+  })
+
+  it('starts the guided scenario mapped to an operation', () => {
+    withRouter(
+      <OperationBar
+        moduleId="sstable"
+        operations={OPERATIONS}
+        settings={SETTINGS}
+        scenarios={[
+          { id: 'compact-story', title: 'Compact', description: '', ops: [{ opId: 'compact' }] },
+        ]}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Compact' }))
+    expect(seam.store.actions.startRun).toHaveBeenCalledWith('sstable', 'guided', {
+      scenarioId: 'compact-story',
+    })
   })
 })
 
