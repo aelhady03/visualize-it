@@ -9,7 +9,8 @@ export type Config = Record<string, string | number | boolean>;
 
 export interface Highlight {
   id: string;                 // stable entity id in the state snapshot
-  role: "active" | "hit" | "miss" | "removed" | "new";
+  role: "active" | "hit" | "miss" | "removed" | "new" | "stale";
+  // "stale" = a superseded version of an entity (old value of an updated key)
 }
 
 export interface Metrics { [name: string]: number | string }
