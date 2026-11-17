@@ -91,9 +91,10 @@ The contract is split into two files so the engine boundary rule stays clean:
   (React types live here only).
 
 The shell depends only on these files — never on a specific module. **The
-contract tags `v1-rc` at the end of Phase 1 and freezes as v1 after the
-Phase 2 validation** (append-log module green + SSTable state shape locked,
-§7); from then on changes require the Phase 1 owner (§9). `S` is
+contract tagged `v1-rc` at the end of Phase 1 and is FROZEN as v1 as of
+2026-11-18** (git tag `contract-v1`) — the append-log module validated it
+from an outsider's perspective and the SSTable state shape is locked (§7).
+From now on changes require the Phase 1 owner (§9). `S` is
 the module's engine state; it must be JSON-serializable (enforced by the
 conformance suite, §3.5).
 
@@ -628,9 +629,9 @@ Current status (see each module's `STATUS.md` for detail):
 
 | Module | Status |
 |--------|--------|
-| sstable | plan v3 verified GO; not started |
+| sstable | foundation merged (state, libs, write/flush/jobs engine); Wave 3 pending: read, update/delete, crash/bulk, STCS + leveled compaction, render + scenarios |
+| append-log | DONE — full module merged; validated contract v1 |
 | hash-index | not started |
-| append-log | candidate for the Phase 2 contract-validation module |
 
 ## 10. Backlog (nice-to-haves from review)
 
