@@ -67,6 +67,17 @@ engine, added as the author learns each concept.
   re-resolve `@latest` for *new* tooling only; existing majors stay unless
   the repo-wide upgrade has happened.
 
+**Recorded exceptions (Wave 0, 2026-11-18):**
+
+- **typescript ~6.0.3** (not 7.x): typescript-eslint requires <6.1.0.
+  Upgrade only when typescript-eslint supports TS 7 — do not "fix" to
+  `@latest` before then.
+- **`motion` (14.14.0) instead of `framer-motion`**: `motion` is the current
+  home of Framer Motion. Import as `import { motion } from "motion/react"`.
+- `eslint-import-resolver-typescript` is present so the boundaries plugin
+  resolves the `@core/*` / `@shell/*` aliases — required, don't remove.
+- `engines.node: >=26` (latest LTS at scaffold time).
+
 ## 3. Architecture
 
 ### 3.1 Frozen contract v1
