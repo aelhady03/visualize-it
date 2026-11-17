@@ -1,0 +1,88 @@
+/* Semantic visualization tokens (PLAN.md §3.4).
+ *
+ * Nine tokens, each with a LIGHT and a DARK value (prefers-color-scheme).
+ * The palette is colorblind-safe (Okabe-Ito hues). Tombstones differ from
+ * every other entity by shape/pattern AND color: they use the muted gray
+ * `--viz-tombstone` plus a diagonal cross pattern drawn by the primitives.
+ *
+ * Registered in Tailwind v4's `@theme` so utilities such as `fill-viz-wal`,
+ * `stroke-viz-hit` and `text-viz-memtable` exist. `@theme inline` keeps the
+ * utilities pointing at the CSS variables, so the light/dark flip below is
+ * picked up everywhere the utilities are used.
+ */
+@theme inline {
+  --color-viz-wal: var(--viz-wal);
+  --color-viz-memtable: var(--viz-memtable);
+  --color-viz-file: var(--viz-file);
+  --color-viz-tombstone: var(--viz-tombstone);
+  --color-viz-hit: var(--viz-hit);
+  --color-viz-miss: var(--viz-miss);
+  --color-viz-active: var(--viz-active);
+  --color-viz-new: var(--viz-new);
+  --color-viz-removed: var(--viz-removed);
+}
+
+:root {
+  --viz-wal: #e69f00; /* orange — WAL / append log segment */
+  --viz-memtable: #cc79a7; /* reddish purple — in-memory structure */
+  --viz-file: #56b4e9; /* sky blue — on-disk file (SSTable) */
+  --viz-tombstone: #8c8c92; /* gray — deleted marker (+ cross pattern) */
+  --viz-hit: #009e73; /* bluish green — read hit */
+  --viz-miss: #d55e00; /* vermillion — read miss */
+  --viz-active: #c79a00; /* darkened yellow — element being worked on */
+  --viz-new: #0072b2; /* blue — entity added by this step */
+  --viz-removed: #4b4b50; /* near-black — entity removed by this step */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --viz-wal: #f2b54a;
+    --viz-memtable: #d99cc3;
+    --viz-file: #7cc4ec;
+    --viz-tombstone: #a6a6ad;
+    --viz-hit: #2fb57f;
+    --viz-miss: #f0824e;
+    --viz-active: #f5e75c;
+    --viz-new: #4b9fe8;
+    --viz-removed: #cfcfd6;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * App shell base adjustments.
+ *
+ * src/index.css (scaffold, owned by the integrator) styles `#root` as a
+ * centered 1126px column and sets oversized heading defaults. Those rules are
+ * unlayered CSS, so they would beat Tailwind utilities; this file is loaded
+ * after index.css and neutralizes them so utility classes take effect.
+ * ------------------------------------------------------------------------- */
+#root {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  text-align: start;
+  border-inline: none;
+  display: block;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  margin: 0;
+  color: inherit;
+  font-family: inherit;
+}
+
+code {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  padding: 0;
+  background: none;
+  color: inherit;
+}
