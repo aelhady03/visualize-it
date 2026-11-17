@@ -22,3 +22,7 @@ pnpm-debug.log*
 
 # misc
 .turbo/
+
+# vite
+dist-ssr/
+*.local

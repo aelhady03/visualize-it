@@ -1,0 +1,8 @@
+# The plan is append/edit-by-owner only and must not be reformatted.
+PLAN.md
+# Frozen contract files are verbatim copies of PLAN.md §3.1 — never reformat.
+src/core/engine-contract.ts
+src/core/view-contract.ts
+pnpm-lock.yaml
+dist
+coverage
