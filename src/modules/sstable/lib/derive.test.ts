@@ -1,6 +1,4 @@
-// Uses node:test + tsx (no build system yet). Port to Vitest mechanically once the Wave 0 scaffold lands.
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import type { Block, EngineState, Entry, SSTable } from "../state";
 import {
   compareKeys,
@@ -29,10 +27,10 @@ function sstable(id: string, seq: number, ...blocks: Block[]): SSTable {
 
 describe("compareKeys", () => {
   it("is a total order matching JS string <", () => {
-    assert.equal(compareKeys("a", "b"), -1);
-    assert.equal(compareKeys("b", "a"), 1);
-    assert.equal(compareKeys("a", "a"), 0);
-    assert.equal(compareKeys("apple", "apples"), -1);
+    expect(compareKeys("a", "b")).toBe(-1);
+    expect(compareKeys("b", "a")).toBe(1);
+    expect(compareKeys("a", "a")).toBe(0);
+    expect(compareKeys("apple", "apples")).toBe(-1);
   });
 });
 
@@ -44,8 +42,8 @@ describe("min/max keys", () => {
       block("b1", entry("e1", "apple", "v", 1)),
       block("b2", entry("e2", "cherry", "v", 2), entry("e3", "fig", "v", 3)),
     );
-    assert.equal(sstableMinKey(sst), "apple");
-    assert.equal(sstableMaxKey(sst), "fig");
+    expect(sstableMinKey(sst)).toBe("apple");
+    expect(sstableMaxKey(sst)).toBe("fig");
   });
 
   it("skips empty blocks", () => {
@@ -55,14 +53,14 @@ describe("min/max keys", () => {
       block("b1"),
       block("b2", entry("e1", "mango", "v", 1)),
     );
-    assert.equal(sstableMinKey(sst), "mango");
-    assert.equal(sstableMaxKey(sst), "mango");
+    expect(sstableMinKey(sst)).toBe("mango");
+    expect(sstableMaxKey(sst)).toBe("mango");
   });
 
   it("returns null for an empty file", () => {
     const sst = sstable("s1", 0, block("b1"));
-    assert.equal(sstableMinKey(sst), null);
-    assert.equal(sstableMaxKey(sst), null);
+    expect(sstableMinKey(sst)).toBeNull();
+    expect(sstableMaxKey(sst)).toBeNull();
   });
 });
 
@@ -73,7 +71,7 @@ describe("sparseIndex", () => {
       block("b2"),
       block("b3", entry("e3", "cherry", "v", 3)),
     ];
-    assert.deepEqual(sparseIndex(blocks), [
+    expect(sparseIndex(blocks)).toEqual([
       { blockId: "b1", key: "apple" },
       { blockId: "b3", key: "cherry" },
     ]);
@@ -82,15 +80,15 @@ describe("sparseIndex", () => {
 
 describe("isSorted", () => {
   it("passes sorted input", () => {
-    assert.equal(isSorted([entry("e1", "a", "v", 1), entry("e2", "b", "v", 2)]), true);
+    expect(isSorted([entry("e1", "a", "v", 1), entry("e2", "b", "v", 2)])).toBe(true);
   });
 
   it("passes non-decreasing input with adjacent equal keys (dups are a separate invariant)", () => {
-    assert.equal(isSorted([entry("e1", "a", "v", 1), entry("e2", "a", "v", 2)]), true);
+    expect(isSorted([entry("e1", "a", "v", 1), entry("e2", "a", "v", 2)])).toBe(true);
   });
 
   it("catches a planted inversion", () => {
-    assert.equal(isSorted([entry("e1", "b", "v", 1), entry("e2", "a", "v", 2)]), false);
+    expect(isSorted([entry("e1", "b", "v", 1), entry("e2", "a", "v", 2)])).toBe(false);
   });
 });
 
@@ -102,7 +100,7 @@ describe("hasDuplicateKeysWithinFile", () => {
       block("b1", entry("e1", "apple", "v1", 1)),
       block("b2", entry("e2", "apple", "v2", 3)),
     );
-    assert.equal(hasDuplicateKeysWithinFile(sst), true);
+    expect(hasDuplicateKeysWithinFile(sst)).toBe(true);
   });
 
   it("passes a clean file", () => {
@@ -111,7 +109,7 @@ describe("hasDuplicateKeysWithinFile", () => {
       2,
       block("b1", entry("e1", "apple", "v1", 1), entry("e2", "banana", "v2", 2)),
     );
-    assert.equal(hasDuplicateKeysWithinFile(sst), false);
+    expect(hasDuplicateKeysWithinFile(sst)).toBe(false);
   });
 });
 
@@ -122,22 +120,22 @@ describe("levelRangesDisjoint", () => {
   const overlapping = sstable("l1d", 6, block("b4", entry("e6", "banana", "v2", 6))); // overlaps l1a
 
   it("passes disjoint ranges", () => {
-    assert.equal(levelRangesDisjoint([l1a, l1b, l1c]), true);
+    expect(levelRangesDisjoint([l1a, l1b, l1c])).toBe(true);
   });
 
   it("catches a planted overlap", () => {
-    assert.equal(levelRangesDisjoint([l1a, l1b, overlapping]), false);
+    expect(levelRangesDisjoint([l1a, l1b, overlapping])).toBe(false);
   });
 
   it("treats touching ranges as overlapping (a shared boundary key is a shared key)", () => {
     const touchA = sstable("ta", 1, block("b1", entry("e1", "apple", "v", 1), entry("e2", "cherry", "v", 2)));
     const touchB = sstable("tb", 3, block("b2", entry("e3", "cherry", "v2", 3)));
-    assert.equal(levelRangesDisjoint([touchA, touchB]), false);
+    expect(levelRangesDisjoint([touchA, touchB])).toBe(false);
   });
 
   it("ignores empty files", () => {
     const empty = sstable("empty", 0, block("b0"));
-    assert.equal(levelRangesDisjoint([l1a, empty, l1b]), true);
+    expect(levelRangesDisjoint([l1a, empty, l1b])).toBe(true);
   });
 });
 
@@ -156,14 +154,14 @@ describe("seqDecreasesDownLevels", () => {
   it("passes a valid leveled state", () => {
     const l0 = [sstable("s2", 10, block("b1", entry("e1", "apple", "a1", 10)))];
     const l1 = [sstable("l1a", 5, block("b2", entry("e2", "apple", "a0", 5)))];
-    assert.deepEqual(seqDecreasesDownLevels(baseState(l0, [l1])), []);
+    expect(seqDecreasesDownLevels(baseState(l0, [l1]))).toEqual([]);
   });
 
   it("catches a deeper copy that is NEWER than the shallower one", () => {
     const l0 = [sstable("s2", 2, block("b1", entry("e1", "apple", "a0", 2)))];
     const l1 = [sstable("l1a", 5, block("b2", entry("e2", "apple", "a1", 5)))];
     const violations = seqDecreasesDownLevels(baseState(l0, [l1]));
-    assert.deepEqual(violations, [
+    expect(violations).toEqual([
       { key: "apple", level: 0, seq: 2, deeperLevel: 1, deeperSeq: 5 },
     ]);
   });
@@ -171,7 +169,7 @@ describe("seqDecreasesDownLevels", () => {
   it("catches EQUAL seqs (strictly decreasing, not non-increasing)", () => {
     const l0 = [sstable("s2", 5, block("b1", entry("e1", "apple", "a1", 5)))];
     const l1 = [sstable("l1a", 5, block("b2", entry("e2", "apple", "a1", 5)))];
-    assert.equal(seqDecreasesDownLevels(baseState(l0, [l1])).length, 1);
+    expect(seqDecreasesDownLevels(baseState(l0, [l1])).length).toBe(1);
   });
 
   it("reports violations against EVERY deeper level, not just the adjacent one", () => {
@@ -179,13 +177,13 @@ describe("seqDecreasesDownLevels", () => {
     const l1: SSTable[] = [];
     const l2 = [sstable("l2a", 9, block("b2", entry("e2", "x", "v2", 9)))];
     const violations = seqDecreasesDownLevels(baseState(l0, [l1, l2]));
-    assert.deepEqual(violations, [{ key: "x", level: 0, seq: 1, deeperLevel: 2, deeperSeq: 9 }]);
+    expect(violations).toEqual([{ key: "x", level: 0, seq: 1, deeperLevel: 2, deeperSeq: 9 }]);
   });
 
   it("ignores keys that exist at only one level", () => {
     const l0 = [sstable("s2", 1, block("b1", entry("e1", "x", "v", 1)))];
     const l1 = [sstable("l1a", 2, block("b2", entry("e2", "y", "v", 2)))];
-    assert.deepEqual(seqDecreasesDownLevels(baseState(l0, [l1])), []);
+    expect(seqDecreasesDownLevels(baseState(l0, [l1]))).toEqual([]);
   });
 
   it("uses the MAX seq per key within L0 (L0 files overlap by design)", () => {
@@ -194,14 +192,14 @@ describe("seqDecreasesDownLevels", () => {
       sstable("s3", 4, block("b2", entry("e2", "x", "old", 4))),
     ];
     const l1 = [sstable("l1a", 3, block("b3", entry("e3", "x", "older", 3)))];
-    assert.deepEqual(seqDecreasesDownLevels(baseState(l0, [l1])), []);
+    expect(seqDecreasesDownLevels(baseState(l0, [l1]))).toEqual([]);
   });
 });
 
 describe("entryBytes / liveBytes", () => {
   it("entryBytes is the documented estimator", () => {
     // id + key + value + 8 (seq)
-    assert.equal(entryBytes(entry("e1", "abc", "de", 99)), 2 + 3 + 2 + 8);
+    expect(entryBytes(entry("e1", "abc", "de", 99))).toBe(2 + 3 + 2 + 8);
   });
 
   it("liveBytes counts only the latest version of each key, across memtables and files", () => {
@@ -225,7 +223,7 @@ describe("entryBytes / liveBytes", () => {
       metrics: { ingestedBytes: 0, bytesWritten: 0, diskBytes: 0, lastReadFiles: 0, lastReadBlocks: 0 },
     };
     // stale x@1 (in s1) is excluded; y@5 (only copy) is included
-    assert.equal(liveBytes(state), entryBytes(entry("e3", "x", "v3", 9)) + entryBytes(entry("e2", "y", "v2", 5)));
+    expect(liveBytes(state)).toBe(entryBytes(entry("e3", "x", "v3", 9)) + entryBytes(entry("e2", "y", "v2", 5)));
   });
 
   it("counts a latest tombstone (it occupies space until compaction GCs it)", () => {
@@ -245,6 +243,6 @@ describe("entryBytes / liveBytes", () => {
       config: { strategy: "stcs" },
       metrics: { ingestedBytes: 0, bytesWritten: 0, diskBytes: 0, lastReadFiles: 0, lastReadBlocks: 0 },
     };
-    assert.equal(liveBytes(state), entryBytes(entry("e1", "x", "", 3, true)));
+    expect(liveBytes(state)).toBe(entryBytes(entry("e1", "x", "", 3, true)));
   });
 });

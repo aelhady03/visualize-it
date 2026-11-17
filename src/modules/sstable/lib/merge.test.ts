@@ -1,6 +1,4 @@
-// Uses node:test + tsx (no build system yet). Port to Vitest mechanically once the Wave 0 scaffold lands.
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import type { Entry } from "../state";
 import { mergeRuns, mergePair, keepAllTombstones, type KeepTombstone } from "./merge";
 
@@ -33,27 +31,26 @@ describe("mergeRuns: max-seq reconciliation (R1 counter-example)", () => {
 
   it("keeps the highest-seq entry for x regardless of run order", () => {
     const out = mergeRuns([runA, runB, runC]);
-    assert.deepEqual(
+    expect(
       out.map((e) => [e.key, e.value, e.seq]),
-      [
-        ["x", "v2", 3],
-        ["y", "big", 9],
-      ],
-    );
+    ).toEqual([
+      ["x", "v2", 3],
+      ["y", "big", 9],
+    ]);
   });
 
   it("is order-independent: reversed run order gives the same output", () => {
     const fwd = mergeRuns([runA, runB, runC]);
     const rev = mergeRuns([runC, runB, runA]);
-    assert.deepEqual(rev, fwd);
+    expect(rev).toEqual(fwd);
     // and runC's higher maxSeq must not suppress x
-    assert.ok(rev.some((e) => e.key === "x" && e.value === "v2"));
+    expect(rev.some((e) => e.key === "x" && e.value === "v2")).toBe(true);
   });
 
   it("agrees with pairwise merges", () => {
     const kway = mergeRuns([runA, runB, runC]);
     const pairwise = mergePair(mergePair(runA, runB), runC);
-    assert.deepEqual(kway, pairwise);
+    expect(kway).toEqual(pairwise);
   });
 });
 
@@ -67,12 +64,12 @@ describe("mergeRuns: keepTombstone policy", () => {
 
   it("keeps the tombstone under the default policy", () => {
     const out = mergeRuns([olderValue, tomb]);
-    assert.deepEqual(out, [tomb[0]]);
+    expect(out).toEqual([tomb[0]]);
   });
 
   it("drops the whole key when the policy rejects the tombstone", () => {
     const out = mergeRuns([olderValue, tomb], () => false);
-    assert.deepEqual(out, []);
+    expect(out).toEqual([]);
   });
 
   it("hands the policy every entry for the key across all runs", () => {
@@ -82,11 +79,8 @@ describe("mergeRuns: keepTombstone policy", () => {
       return true;
     };
     mergeRuns([olderValue, tomb], policy);
-    assert.equal(seen.length, 2);
-    assert.deepEqual(
-      seen.map((e) => e.seq).sort((a, b) => a - b),
-      [1, 3],
-    );
+    expect(seen.length).toBe(2);
+    expect(seen.map((e) => e.seq).sort((a, b) => a - b)).toEqual([1, 3]);
   });
 
   it("never consults the policy when the winner is a live value (older tombstone loses)", () => {
@@ -97,8 +91,8 @@ describe("mergeRuns: keepTombstone policy", () => {
     };
     // tombstone seq 2 loses to live value seq 3
     const out = mergeRuns([[entry("a1", "x", "", 2, true)], [entry("b1", "x", "v", 3)]], policy);
-    assert.deepEqual(out, [entry("b1", "x", "v", 3)]);
-    assert.equal(calls, 0);
+    expect(out).toEqual([entry("b1", "x", "v", 3)]);
+    expect(calls).toBe(0);
   });
 
   it("keeps distinct keys and full sort order", () => {
@@ -106,10 +100,7 @@ describe("mergeRuns: keepTombstone policy", () => {
       [entry("a1", "a", "1", 1), entry("a2", "c", "1", 2)],
       [entry("b1", "b", "2", 5)],
     ]);
-    assert.deepEqual(
-      out.map((e) => e.key),
-      ["a", "b", "c"],
-    );
+    expect(out.map((e) => e.key)).toEqual(["a", "b", "c"]);
   });
 });
 
@@ -170,14 +161,14 @@ describe("mergeRuns: k-way equals repeated pairwise merges (seeded random)", () 
         const kway = mergeRuns(runs, policy);
         const folded = foldPairwise(runs, policy);
 
-        assert.deepEqual(kway, folded, "k-way output must equal the pairwise fold");
+        expect(kway).toEqual(folded);
 
         // independent checks on the k-way output itself
-        assert.ok(kway.every((e, i) => i === 0 || kway[i - 1].key < e.key), "sorted & unique keys");
+        expect(kway.every((e, i) => i === 0 || kway[i - 1].key < e.key)).toBe(true);
         for (const e of kway) {
           const best = maxSeqForKey(runs, e.key);
-          assert.ok(best);
-          assert.equal(e.seq, best.seq, `key ${e.key} must carry the max seq`);
+          expect(best).toBeTruthy();
+          expect(e.seq).toBe(best!.seq);
         }
       }
     });
@@ -190,9 +181,9 @@ describe("mergeRuns: k-way equals repeated pairwise merges (seeded random)", () 
         for (const e of run) {
           if (present.has(e.key)) continue;
           const best = maxSeqForKey(runs, e.key);
-          assert.ok(best);
-          assert.equal(best.tombstone, true, `absent key ${e.key} must have a tombstone as its newest entry`);
-          assert.equal(best.value, "", "and the policy must have dropped it");
+          expect(best).toBeTruthy();
+          expect(best!.tombstone).toBe(true);
+          expect(best!.value).toBe("");
         }
       }
     });
