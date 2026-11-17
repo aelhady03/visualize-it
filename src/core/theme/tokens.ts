@@ -19,6 +19,7 @@ export const VIZ_TOKEN_KEYS = [
   'active',
   'new',
   'removed',
+  'text',
 ] as const
 
 export type VizTokenKey = (typeof VIZ_TOKEN_KEYS)[number]
@@ -42,6 +43,10 @@ export const vizTokens: Readonly<Record<VizTokenKey, string>> = {
   active: vizVar('active'),
   new: vizVar('new'),
   removed: vizVar('removed'),
+  // Neutral ink for diagram labels/annotations. Existing modules still use
+  // `currentColor` for text; they may switch to var(--viz-text) later so
+  // diagram text stays legible on any surface.
+  text: vizVar('text'),
 }
 
 /** Highlight role → semantic token key (role colors, PLAN.md §3.1). */

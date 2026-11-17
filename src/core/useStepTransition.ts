@@ -39,6 +39,40 @@ export function statesEqual(a: unknown, b: unknown): boolean {
   }
 }
 
+/**
+ * Completion helper for animations that have no single `onAnimationComplete`
+ * moment — e.g. `layoutId` FLIP moves, where motion animates many elements
+ * independently and no one element's completion covers the whole transition
+ * (PLAN.md §3.1 animation convention).
+ *
+ * Usage in a module Render — arm it ONLY when there is something to animate,
+ * because `useStepTransition` already auto-completes identical snapshots and
+ * reduced motion (arming it then would double-advance the player):
+ *
+ * ```ts
+ * const { nothingToAnimate } = useStepTransition({ state, prevState, speed, reducedMotion, onAnimationComplete })
+ * useEffect(() => {
+ *   if (nothingToAnimate) return
+ *   return completeAfter(FLIP_MS, speed, reducedMotion, onAnimationComplete)
+ * }, [state, nothingToAnimate])
+ * ```
+ *
+ * `completeAfter` fires the callback exactly once, after `ms` divided by the
+ * clamped player speed (0.25–2); under prefers-reduced-motion it fires on the
+ * next task. It returns a cancel function — return it from your effect so the
+ * timer is cancelled when the step changes or the component unmounts.
+ */
+export function completeAfter(
+  ms: number,
+  speed: number,
+  reducedMotion: boolean,
+  onAnimationComplete: () => void,
+): () => void {
+  const delay = reducedMotion ? 0 : ms / clampSpeed(speed)
+  const timer = setTimeout(onAnimationComplete, delay)
+  return () => clearTimeout(timer)
+}
+
 export interface UseStepTransitionArgs {
   /** Current step's state snapshot. */
   state: unknown
