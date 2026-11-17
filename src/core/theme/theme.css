@@ -20,6 +20,7 @@
   --color-viz-active: var(--viz-active);
   --color-viz-new: var(--viz-new);
   --color-viz-removed: var(--viz-removed);
+  --color-viz-text: var(--viz-text);
 }
 
 :root {
@@ -32,6 +33,7 @@
   --viz-active: #c79a00; /* darkened yellow — element being worked on */
   --viz-new: #0072b2; /* blue — entity added by this step */
   --viz-removed: #4b4b50; /* near-black — entity removed by this step */
+  --viz-text: #21252b; /* neutral ink for diagram labels/annotations */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -45,6 +47,7 @@
     --viz-active: #f5e75c;
     --viz-new: #4b9fe8;
     --viz-removed: #cfcfd6;
+    --viz-text: #e7e9ee;
   }
 }
 

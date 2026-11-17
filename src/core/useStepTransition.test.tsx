@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   BASE_DURATION,
   clampSpeed,
+  completeAfter,
   MAX_SPEED,
   MIN_SPEED,
   statesEqual,
@@ -161,5 +162,65 @@ describe('useStepTransition speed scaling', () => {
     expect(fwd.current.variants.enter).toMatchObject({ x: [14, 0] })
     expect(back.current.variants.enter).toMatchObject({ x: [-14, 0] })
     expect(reduced.current.variants.enter).not.toHaveProperty('x')
+  })
+})
+
+describe('completeAfter (FLIP / no single onAnimationComplete moment)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    cleanup()
+  })
+
+  it('fires exactly once after ms scaled by speed', () => {
+    const spy = vi.fn()
+    completeAfter(400, 2, false, spy) // 200ms at 2x
+    act(() => {
+      vi.advanceTimersByTime(199)
+    })
+    expect(spy).not.toHaveBeenCalled()
+    act(() => {
+      vi.advanceTimersByTime(1)
+    })
+    expect(spy).toHaveBeenCalledTimes(1)
+    act(() => {
+      vi.runAllTimers()
+    })
+    expect(spy).toHaveBeenCalledTimes(1)
+  })
+
+  it('fires immediately (next task) under reduced motion', () => {
+    const spy = vi.fn()
+    completeAfter(400, 1, true, spy)
+    expect(spy).not.toHaveBeenCalled()
+    act(() => {
+      vi.runAllTimers()
+    })
+    expect(spy).toHaveBeenCalledTimes(1)
+  })
+
+  it('scales with slow speeds (0.25x = 4x longer)', () => {
+    const spy = vi.fn()
+    completeAfter(400, 0.25, false, spy) // 1600ms at 0.25x
+    act(() => {
+      vi.advanceTimersByTime(1599)
+    })
+    expect(spy).not.toHaveBeenCalled()
+    act(() => {
+      vi.advanceTimersByTime(1)
+    })
+    expect(spy).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns a cancel function that prevents the callback', () => {
+    const spy = vi.fn()
+    const cancel = completeAfter(400, 1, false, spy)
+    cancel()
+    act(() => {
+      vi.runAllTimers()
+    })
+    expect(spy).not.toHaveBeenCalled()
   })
 })

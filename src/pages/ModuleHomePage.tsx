@@ -47,13 +47,22 @@ function HomeInner({ id }: { id: string }) {
         </ul>
       </header>
 
-      {/* Intro primer placeholder — module-provided Intro components land in a later phase. */}
-      <div className="mb-6 rounded-lg border border-dashed border-neutral-300 p-6 text-center dark:border-neutral-700">
-        <p className="font-medium">Introduction coming soon</p>
-        <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-          The module&apos;s Intro primer will explain the engine here.
-        </p>
-      </div>
+      {/* Module-provided Intro primer (VizModule.Intro); placeholder for modules without one. */}
+      {module.Intro ? (
+        <section
+          aria-label="Introduction"
+          className="mb-6 rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900"
+        >
+          <module.Intro />
+        </section>
+      ) : (
+        <div className="mb-6 rounded-lg border border-dashed border-neutral-300 p-6 text-center dark:border-neutral-700">
+          <p className="font-medium">Introduction coming soon</p>
+          <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+            This module does not ship an Intro primer yet.
+          </p>
+        </div>
+      )}
 
       <Link
         to={`/modules/${module.meta.id}/view`}
