@@ -10,10 +10,15 @@
  * 4. result-invariant — `result` deep-equals `steps.at(-1).state` when steps exist;
  * 5. scenario-run    — every scenario runs without error from `init()` (or its seed state);
  * 6. sandbox-inputSchema — every sandbox-mode operation declares an `inputSchema`;
+ *                      an empty or ABSENT schema is allowed when the operation
+ *                      needs no input (the shell renders a bare run button);
  * 7. render-mount    — `Render` mounts for every step of every scenario
- *                      (jsdom + @testing-library/react) and calls
- *                      `onAnimationComplete` (the contract requires it, even
- *                      when nothing animates).
+ *                      (jsdom + @testing-library/react): once with
+ *                      `reducedMotion: true`, where `onAnimationComplete` must
+ *                      fire (the contract requires it, even when nothing
+ *                      animates), and once with `reducedMotion: false`, a
+ *                      smoke test of the animating path that tolerates a
+ *                      slow or jsdom-stalled animation.
  *
  * Failures are collected (one check may report several), and every message
  * names the check and the module. Async-safe: `Render` may use effects, so
@@ -181,10 +186,13 @@ export async function runConformance<S>(module: VizModule<S>): Promise<Conforman
     }
   }
 
-  // Check 6: every sandbox-mode operation declares an inputSchema.
+  // Check 6: every sandbox-mode operation declares an inputSchema. An empty
+  // or absent schema is ALLOWED when the operation needs no input (the shell
+  // renders a bare run button) — PLAN.md §3.5. A present-but-malformed schema
+  // (not an array) is still an error.
   for (const op of sandboxOps) {
-    if (!Array.isArray(op.inputSchema) || op.inputSchema.length === 0) {
-      fail(CHECK_SCHEMA, `sandbox operation "${op.id}" declares no inputSchema`)
+    if (op.inputSchema !== undefined && op.inputSchema !== null && !Array.isArray(op.inputSchema)) {
+      fail(CHECK_SCHEMA, `sandbox operation "${op.id}" declares a malformed inputSchema`)
     }
   }
 
@@ -245,55 +253,72 @@ export async function runConformance<S>(module: VizModule<S>): Promise<Conforman
     }
   })
 
-  // Check 7: Render mounts for every step of every scenario and completes.
+  // Check 7: Render mounts for every step of every scenario, twice:
+  // - pass 1, reducedMotion: true — the Render must mount AND call
+  //   `onAnimationComplete` (nothing animates, so the callback is required);
+  // - pass 2, reducedMotion: false — smoke test of the animating path: the
+  //   Render must mount, but a slow or jsdom-stalled animation is tolerated,
+  //   so completion is only waited for a short COMPLETION_TIMEOUT.
+  const COMPLETION_TIMEOUT_MS = 50
   for (const capture of captures) {
     for (let i = 0; i < capture.steps.length; i += 1) {
       const step = capture.steps[i]
-      let completed = false
-      const props: RenderProps<unknown> = {
+      const baseProps: Omit<RenderProps<unknown>, 'reducedMotion' | 'onAnimationComplete'> = {
         state: step.state,
         prevState: i > 0 ? capture.steps[i - 1].state : capture.scenario.seedState,
         direction: 1,
         speed: 1,
-        reducedMotion: true,
         highlights: step.highlights ?? [],
-        onAnimationComplete: () => {
-          completed = true
-        },
       }
-      let unmount: (() => void) | null = null
-      try {
-        const rendered = render(
-          createElement(mod.Render as ComponentType<RenderProps<unknown>>, props),
-        )
-        unmount = rendered.unmount
-        await waitFor(
-          () => {
-            if (!rendered.container.firstElementChild) throw new Error('rendered nothing')
+
+      for (const [reducedMotion, requireCompletion, completionTimeout, check] of [
+        [true, true, 1000, CHECK_RENDER],
+        [false, false, COMPLETION_TIMEOUT_MS, CHECK_RENDER],
+      ] as const) {
+        let completed = false
+        const props: RenderProps<unknown> = {
+          ...baseProps,
+          reducedMotion,
+          onAnimationComplete: () => {
+            completed = true
           },
-          { timeout: 1000 },
-        )
-      } catch (err) {
-        fail(
-          CHECK_RENDER,
-          `scenario "${capture.scenario.id}" step ${i} did not mount: ${message(err)}`,
-        )
-      }
-      if (unmount) {
+        }
+        let unmount: (() => void) | null = null
         try {
+          const rendered = render(
+            createElement(mod.Render as ComponentType<RenderProps<unknown>>, props),
+          )
+          unmount = rendered.unmount
           await waitFor(
             () => {
-              if (!completed) throw new Error('not completed yet')
+              if (!rendered.container.firstElementChild) throw new Error('rendered nothing')
             },
             { timeout: 1000 },
           )
-        } catch {
+        } catch (err) {
           fail(
-            CHECK_COMPLETE,
-            `scenario "${capture.scenario.id}" step ${i} never called onAnimationComplete`,
+            check,
+            `scenario "${capture.scenario.id}" step ${i} (reducedMotion: ${reducedMotion}) did not mount: ${message(err)}`,
           )
         }
-        unmount()
+        if (unmount) {
+          try {
+            await waitFor(
+              () => {
+                if (!completed) throw new Error('not completed yet')
+              },
+              { timeout: completionTimeout },
+            )
+          } catch {
+            if (requireCompletion) {
+              fail(
+                CHECK_COMPLETE,
+                `scenario "${capture.scenario.id}" step ${i} never called onAnimationComplete`,
+              )
+            }
+          }
+          unmount()
+        }
       }
     }
   }

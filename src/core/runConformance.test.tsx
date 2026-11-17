@@ -161,10 +161,30 @@ describe("runConformance", () => {
     expect(report.failures.some((failure) => failure.includes("scenario-run"))).toBe(true);
   });
 
-  it("fails sandbox-inputSchema when a sandbox op declares none", async () => {
+  it("allows a sandbox op with an empty or absent inputSchema (no input needed)", async () => {
     const report = await runConformance(
       makeModule({
-        operations: [{ id: "inc", label: "Increment", description: "inc", mode: "sandbox" }],
+        operations: [
+          { id: "inc", label: "Increment", description: "inc", mode: "sandbox" },
+          { id: "tick", label: "Tick", description: "tick", mode: "both", inputSchema: [] },
+        ],
+      }),
+    );
+    expect(report.passed).toBe(true);
+  });
+
+  it("fails sandbox-inputSchema only for a malformed (non-array) schema", async () => {
+    const report = await runConformance(
+      makeModule({
+        operations: [
+          {
+            id: "inc",
+            label: "Increment",
+            description: "inc",
+            mode: "sandbox",
+            inputSchema: "nope" as unknown as VizModule<FakeState>["operations"][number]["inputSchema"],
+          },
+        ],
       }),
     );
     expect(report.failures.some((failure) => failure.includes("sandbox-inputSchema"))).toBe(true);
@@ -179,6 +199,43 @@ describe("runConformance", () => {
       }),
     );
     expect(report.failures.some((failure) => failure.includes("render-mount"))).toBe(true);
+  });
+
+  it("fails render-mount when the animating path (reducedMotion: false) throws", async () => {
+    const report = await runConformance(
+      makeModule({
+        Render: ({ reducedMotion, onAnimationComplete }: RenderProps<FakeState>) => {
+          useEffect(() => {
+            onAnimationComplete();
+          });
+          if (!reducedMotion) throw new Error("animate boom");
+          return <svg data-testid="reduced-only" />;
+        },
+      }),
+    );
+    expect(
+      report.failures.some(
+        (failure) => failure.includes("render-mount") && failure.includes("reducedMotion: false"),
+      ),
+    ).toBe(true);
+  });
+
+  it("tolerates a slow completion in the animating pass but not in the reduced-motion pass", async () => {
+    const report = await runConformance(
+      makeModule({
+        Render: ({ reducedMotion, onAnimationComplete }: RenderProps<FakeState>) => {
+          useEffect(() => {
+            if (reducedMotion) onAnimationComplete();
+            // full-motion path: completion is left to the animation itself,
+            // which jsdom may never settle — that must be tolerated.
+          });
+          return <svg data-testid="slow-anim" />;
+        },
+      }),
+    );
+    expect(report.failures.filter((failure) => failure.includes("render.onAnimationComplete")))
+      .toHaveLength(0);
+    expect(report.passed).toBe(true);
   });
 
   it("fails render.onAnimationComplete when the callback never fires", async () => {

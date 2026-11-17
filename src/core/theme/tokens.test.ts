@@ -29,6 +29,7 @@ describe('tokens.ts JS mapping', () => {
       miss: 'miss',
       removed: 'removed',
       new: 'new',
+      stale: 'removed',
     })
   })
 })

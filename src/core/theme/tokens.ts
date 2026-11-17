@@ -51,6 +51,7 @@ export const roleTokens: Readonly<Record<Highlight['role'], VizTokenKey>> = {
   miss: 'miss',
   removed: 'removed',
   new: 'new',
+  stale: 'removed',
 }
 
 /** Highlight role → CSS variable reference (convenience for stroke/fill). */
