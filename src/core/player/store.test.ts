@@ -323,6 +323,101 @@ describe("stepper controls", () => {
   });
 });
 
+// --- settings path: config + setSetting ---------------------------------------
+
+describe("settings path: config + setSetting", () => {
+  it("exposes the resolved config once a module loads, null before", async () => {
+    const store = createPlayerStore(loadModule);
+    expect(store.getState().config).toBeNull();
+
+    // Selecting a module (null run) resolves its config from init().
+    store.getState().actions.startRun("_fixture", "guided", null);
+    await vi.waitFor(() => expect(store.getState().config).toEqual({ capacity: 8 }));
+    expect(store.getState().steps).toEqual([]);
+  });
+
+  it("setSetting resets the module and the new config drives the next runs", async () => {
+    const store = createPlayerStore(loadModule);
+    const actions = store.getState().actions;
+    actions.startRun("_fixture", "sandbox", { opId: "append", input: { value: "a" } });
+    await vi.waitFor(() => expect(store.getState().historyLength).toBe(1));
+
+    actions.setSetting("capacity", 2);
+    await vi.waitFor(() => {
+      const state = store.getState();
+      expect(state.config).toEqual({ capacity: 2 });
+      expect(state.run).toBeNull();
+      expect(state.steps).toEqual([]);
+      expect(state.chapters).toEqual([]);
+      expect(state.index).toBe(-1);
+      expect(state.playing).toBe(false);
+      expect(state.historyLength).toBe(0);
+    });
+
+    // Runs after the reset use init(newConfig): the second append reaches
+    // capacity 2 and emits the cap step instead of growing further.
+    actions.startRun("_fixture", "sandbox", { opId: "append", input: { value: "x" } });
+    await vi.waitFor(() => expect(store.getState().historyLength).toBe(1));
+    actions.startRun("_fixture", "sandbox", { opId: "append", input: { value: "y" } });
+    await vi.waitFor(() => expect(store.getState().historyLength).toBe(2));
+    const state = store.getState();
+    expect(state.steps.map((step) => step.kind)).toEqual([
+      "list.stage",
+      "list.commit",
+      "list.cap",
+    ]);
+    const last = state.steps.at(-1)!.state as { capacity: number; items: unknown[] };
+    expect(last.capacity).toBe(2);
+    expect(last.items).toHaveLength(2);
+  });
+
+  it("config survives startRun and reset, and determinism is unaffected", async () => {
+    const store = createPlayerStore(loadModule);
+    const actions = store.getState().actions;
+    actions.startRun("_fixture", "guided", null);
+    await vi.waitFor(() => expect(store.getState().config).toEqual({ capacity: 8 }));
+    actions.setSetting("capacity", 2);
+    await vi.waitFor(() => expect(store.getState().config).toEqual({ capacity: 2 }));
+
+    actions.startRun("_fixture", "sandbox", { opId: "append", input: { value: "z" } });
+    await vi.waitFor(() => expect(store.getState().historyLength).toBe(1));
+    const firstKinds = store.getState().steps.map((step) => step.kind);
+    const firstState = store.getState().steps.at(-1)!.state;
+
+    actions.reset();
+    expect(store.getState().config).toEqual({ capacity: 2 }); // reset keeps the config
+    actions.startRun("_fixture", "sandbox", { opId: "append", input: { value: "z" } });
+    await vi.waitFor(() => expect(store.getState().historyLength).toBe(1));
+    expect(store.getState().steps.map((step) => step.kind)).toEqual(firstKinds);
+    expect(store.getState().steps.at(-1)!.state).toEqual(firstState);
+  });
+
+  it("setSetting is a no-op without an active module", () => {
+    const store = createPlayerStore(loadModule);
+    expect(() => store.getState().actions.setSetting("capacity", 2)).not.toThrow();
+    expect(store.getState().config).toBeNull();
+  });
+
+  it("keeps config isolated per module", async () => {
+    const store = createPlayerStore((id) => Promise.resolve(makeSandboxFake(id)));
+    const actions = store.getState().actions;
+    actions.startRun("alpha", "sandbox", { opId: "inc" });
+    await settle();
+    actions.setSetting("burst", 3);
+    await settle();
+    expect(store.getState().config).toEqual({ burst: 3 });
+
+    actions.startRun("beta", "sandbox", { opId: "inc" });
+    await settle();
+    expect(store.getState().moduleId).toBe("beta");
+    expect(store.getState().config).toBeNull(); // beta was never configured
+
+    actions.startRun("alpha", "sandbox", { opId: "inc" });
+    await settle();
+    expect(store.getState().config).toEqual({ burst: 3 }); // alpha kept its config
+  });
+});
+
 // --- autoplay state machine with fake timers -----------------------------------
 
 describe("autoplay through the store", () => {

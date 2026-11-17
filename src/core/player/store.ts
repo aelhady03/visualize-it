@@ -15,6 +15,9 @@
  *   `index` lands on the last step (the committed result), playback is a view
  *   over history, `undo` pops one commit, `reset` returns to `engine.init()`.
  * - An invalid-input `error` in sandbox commits nothing and leaves the view.
+ * - `config` holds the module's resolved config (read back from `S.config`,
+ *   PLAN.md §3.1); `setSetting` updates it and resets the module to
+ *   `engine.init(newConfig)` — config goes to `init` only, never to `run`.
  * - Autoplay advances only after `onAnimationComplete()` plus a
  *   narration-length reading time, pauses at key kinds (`isKeyKind`), and can
  *   never hang (hard timeout, see `player/autoplay.ts`).
@@ -24,7 +27,7 @@
 
 import { create } from 'zustand'
 import type { StoreApi, UseBoundStore } from 'zustand'
-import type { OpInput, Step } from '../engine-contract'
+import type { Config, OpInput, Step } from '../engine-contract'
 import type { VizModule } from '../view-contract'
 import { loadModule } from '../discovery'
 import { AutoplayEngine, isKeyKind } from './autoplay'
@@ -50,6 +53,8 @@ export interface PlayerStore {
   index: number
   /** Playback speed, clamped to 0.25–2. */
   speed: number
+  /** Resolved config of the loaded module, or null before it is known. */
+  config: Config | null
   /** Autoplay is armed (see `player/autoplay.ts` for the pacing rules). */
   playing: boolean
   /** Sandbox: number of committed runs (the undo stack depth). */
@@ -62,6 +67,13 @@ export interface PlayerStore {
     stepBack(): void
     scrubTo(index: number): void
     setSpeed(speed: number): void
+    /**
+     * Update one resolved config value, then reset the module to
+     * `engine.init(newConfig)` (PLAN.md §3.1/§3.3): the timeline and sandbox
+     * history are cleared, `index` is -1 and playback stops. `engine.run`
+     * never receives config — it goes to `init` only.
+     */
+    setSetting(settingId: string, value: string | number | boolean): void
     /** Jump to the next chapter's start (or the end of the timeline). */
     fastForwardChapter(): void
     /** Sandbox: pop the last committed run. No-op in guided mode. */
@@ -85,6 +97,8 @@ interface SliceState {
   index: number
   speed: number
   playing: boolean
+  /** Resolved config for this module; null until first loaded. */
+  config: Config | null
   historyLength: number
   /** Sandbox: committed engine state the next op runs on. */
   sandboxState: unknown
@@ -126,10 +140,24 @@ function emptySlice(): SliceState {
     index: -1,
     speed: 1,
     playing: false,
+    config: null,
     historyLength: 0,
     sandboxState: undefined,
     history: [],
   }
+}
+
+/**
+ * The contract (PLAN.md §3.1) says `S` carries its resolved config as
+ * `S.config` — read it back from an initial state so the store's `config`
+ * always reflects what the engine actually resolved.
+ */
+function readResolvedConfig(state: unknown): Config | null {
+  if (state !== null && typeof state === 'object' && 'config' in state) {
+    const config = (state as { config?: unknown }).config
+    if (config !== null && typeof config === 'object') return config as Config
+  }
+  return null
 }
 
 type ResolveModule = (id: string) => Promise<VizModule<unknown>>
@@ -174,6 +202,7 @@ export function createPlayerStore(
         chapters: slice.chapters,
         index: slice.index,
         speed: slice.speed,
+        config: slice.config,
         playing: slice.playing,
         historyLength: slice.historyLength,
       })
@@ -186,8 +215,14 @@ export function createPlayerStore(
       syncPublic(moduleId)
     }
 
-    const initStateFor = (moduleId: string, module: VizModule<unknown>): unknown => {
-      if (!initStates.has(moduleId)) initStates.set(moduleId, module.engine.init())
+    const initStateFor = (
+      moduleId: string,
+      module: VizModule<unknown>,
+      config: Config | null,
+    ): unknown => {
+      if (!initStates.has(moduleId)) {
+        initStates.set(moduleId, module.engine.init(config ?? undefined))
+      }
       return initStates.get(moduleId)
     }
 
@@ -244,7 +279,6 @@ export function createPlayerStore(
         playing: false,
       })
       switchPublic(moduleId)
-      if (!run) return
 
       void (async () => {
         let module: VizModule<unknown>
@@ -253,14 +287,29 @@ export function createPlayerStore(
         } catch {
           return // unknown module: the empty view already shown stays
         }
-        const base = slices.get(moduleId)
+        let base = slices.get(moduleId)
         if (!base) return
+
+        // First touch of a module: resolve its config from init() (the
+        // contract: S carries the resolved config as S.config).
+        if (base.config === null) {
+          const initial = module.engine.init(undefined)
+          initStates.set(moduleId, initial)
+          slices.set(moduleId, (base = { ...base, config: readResolvedConfig(initial) }))
+        }
+
+        if (!run) {
+          syncPublic(moduleId)
+          return // selection only: config is resolved, the view stays empty
+        }
 
         if (mode === 'guided' && 'scenarioId' in run) {
           const scenario = module.scenarios.find((candidate) => candidate.id === run.scenarioId)
           if (!scenario) return // unknown scenario: keep the empty view
           let prev: unknown =
-            scenario.seedState !== undefined ? scenario.seedState : module.engine.init()
+            scenario.seedState !== undefined
+              ? scenario.seedState
+              : initStateFor(moduleId, module, base.config)
           const steps: Step<unknown>[] = []
           for (const op of scenario.ops) {
             const result = module.engine.run(op.opId, op.input, prev)
@@ -278,7 +327,9 @@ export function createPlayerStore(
           })
         } else if (mode === 'sandbox' && 'opId' in run) {
           const prevState =
-            base.sandboxState !== undefined ? base.sandboxState : initStateFor(moduleId, module)
+            base.sandboxState !== undefined
+              ? base.sandboxState
+              : initStateFor(moduleId, module, base.config)
           const result = module.engine.run(run.opId, run.input, prevState)
           if (result.error) return // invalid input: commits nothing, keeps the empty view
           const history = [...base.history, { run, steps: result.steps, result: result.result }]
@@ -356,6 +407,47 @@ export function createPlayerStore(
       }
     }
 
+    const setSetting = (settingId: string, value: string | number | boolean): void => {
+      const moduleId = get().moduleId
+      if (!moduleId) return
+      engines.get(moduleId)?.cancel()
+      const slice = slices.get(moduleId)
+      if (!slice) return
+      // Optimistic config update (the UI reflects it immediately), with the
+      // module reset to a pristine timeline until init(newConfig) resolves.
+      const optimistic: Config = { ...(slice.config ?? {}), [settingId]: value }
+      slices.set(moduleId, {
+        ...slice,
+        config: optimistic,
+        run: null,
+        steps: [],
+        chapters: [],
+        index: -1,
+        playing: false,
+        historyLength: 0,
+        sandboxState: undefined,
+        history: [],
+      })
+      syncPublic(moduleId)
+
+      void (async () => {
+        let module: VizModule<unknown>
+        try {
+          module = await resolveModule(moduleId)
+        } catch {
+          return // unknown module: the optimistic config stays
+        }
+        const current = slices.get(moduleId)
+        if (!current) return
+        // Config goes to init ONLY — engine.run never receives it.
+        const initial = module.engine.init(optimistic)
+        const resolved = readResolvedConfig(initial) ?? optimistic
+        initStates.set(moduleId, initial)
+        slices.set(moduleId, { ...current, config: resolved, sandboxState: initial })
+        syncPublic(moduleId)
+      })()
+    }
+
     const fastForwardChapter = (): void => {
       const slice = activeSlice()
       if (!slice || slice.steps.length === 0) return
@@ -392,7 +484,7 @@ export function createPlayerStore(
         if (!current || current.mode !== 'sandbox' || current.history.length === 0) return
         const history = current.history.slice(0, -1)
         const last = history.at(-1)
-        const sandboxState = last ? last.result : initStateFor(moduleId, module)
+        const sandboxState = last ? last.result : initStateFor(moduleId, module, current.config)
         slices.set(moduleId, {
           ...current,
           run: last ? last.run : null,
@@ -444,6 +536,7 @@ export function createPlayerStore(
       chapters: [],
       index: -1,
       speed: 1,
+      config: null,
       playing: false,
       historyLength: 0,
       actions: {
@@ -454,6 +547,7 @@ export function createPlayerStore(
         stepBack,
         scrubTo,
         setSpeed,
+        setSetting,
         fastForwardChapter,
         undo,
         reset,
