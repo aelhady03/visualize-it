@@ -105,7 +105,8 @@ type Config = Record<string, string | number | boolean>;
 
 interface Highlight {
   id: string;                 // stable entity id in the state snapshot
-  role: "active" | "hit" | "miss" | "removed" | "new";
+  role: "active" | "hit" | "miss" | "removed" | "new" | "stale";
+  // "stale" = a superseded version of an entity (old value of an updated key)
 }
 
 interface Metrics { [name: string]: number | string }
@@ -170,6 +171,11 @@ interface Scenario<S> {
   seedState?: S;              // optional pre-built starting state
   ops: ScenarioOp[];          // chained operations (write → update → read)
 }
+
+// Guided-mode mapping rule (implemented by the shell): an operation button
+// is enabled in guided mode when a scenario exists whose FIRST op is that
+// operation (fallback: a scenario whose id equals the op id). Selecting the
+// button starts that scenario.
 
 // --- @core/view-contract (React types) ---
 
@@ -291,7 +297,9 @@ Every module's test file calls `runConformance(module)`, which checks:
 3. every step has non-empty `narration` and `kind`;
 4. `result` deep-equals `steps.at(-1).state` whenever steps exist;
 5. every scenario runs without error from `init()` (or its seed state);
-6. every operation with sandbox mode declares `inputSchema`;
+6. every operation with sandbox mode declares `inputSchema` — an empty or
+   absent schema is ALLOWED when the operation needs no input (the shell
+   renders a bare run button);
 7. `Render` mounts for every step of every scenario (jsdom smoke test).
 
 This makes §9's acceptance bar checkable by a module author working alone.
