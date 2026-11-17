@@ -1,0 +1,143 @@
+{
+  "seq": 23,
+  "wal": [
+    {
+      "id": "w3",
+      "entries": [
+        { "id": "e13", "key": "nectarine", "value": "n0", "seq": 13 },
+        { "id": "e14", "key": "orange", "value": "o0", "seq": 14 },
+        { "id": "e15", "key": "pear", "value": "p0", "seq": 15 },
+        { "id": "e16", "key": "plum", "value": "pl0", "seq": 16 },
+        { "id": "e17", "key": "quince", "value": "q0", "seq": 17 },
+        { "id": "e18", "key": "raspberry", "value": "r0", "seq": 18 }
+      ]
+    },
+    {
+      "id": "w4",
+      "entries": [
+        { "id": "e19", "key": "strawberry", "value": "s0", "seq": 19 },
+        { "id": "e20", "key": "tangerine", "value": "t0", "seq": 20 },
+        { "id": "e21", "key": "ugli", "value": "u0", "seq": 21 },
+        { "id": "e22", "key": "date", "value": "", "seq": 22, "tombstone": true }
+      ]
+    }
+  ],
+  "memtables": [
+    {
+      "id": "mt4",
+      "state": "active",
+      "entries": [
+        { "id": "e22", "key": "date", "value": "", "seq": 22, "tombstone": true },
+        { "id": "e19", "key": "strawberry", "value": "s0", "seq": 19 },
+        { "id": "e20", "key": "tangerine", "value": "t0", "seq": 20 },
+        { "id": "e21", "key": "ugli", "value": "u0", "seq": 21 }
+      ],
+      "walSegment": "w4"
+    },
+    {
+      "id": "mt3",
+      "state": "immutable",
+      "entries": [
+        { "id": "e13", "key": "nectarine", "value": "n0", "seq": 13 },
+        { "id": "e14", "key": "orange", "value": "o0", "seq": 14 },
+        { "id": "e15", "key": "pear", "value": "p0", "seq": 15 },
+        { "id": "e16", "key": "plum", "value": "pl0", "seq": 16 },
+        { "id": "e17", "key": "quince", "value": "q0", "seq": 17 },
+        { "id": "e18", "key": "raspberry", "value": "r0", "seq": 18 }
+      ],
+      "walSegment": "w3"
+    }
+  ],
+  "l0": [
+    {
+      "id": "s1",
+      "seq": 6,
+      "blocks": [
+        {
+          "id": "b1",
+          "entries": [
+            { "id": "e1", "key": "apple", "value": "a0", "seq": 1 },
+            { "id": "e2", "key": "banana", "value": "b1", "seq": 2 }
+          ]
+        },
+        {
+          "id": "b2",
+          "entries": [
+            { "id": "e3", "key": "cherry", "value": "c0", "seq": 3 },
+            { "id": "e4", "key": "date", "value": "d1", "seq": 4 }
+          ]
+        },
+        {
+          "id": "b3",
+          "entries": [
+            { "id": "e5", "key": "elderberry", "value": "e1", "seq": 5 },
+            { "id": "e6", "key": "fig", "value": "f0", "seq": 6 }
+          ]
+        }
+      ],
+      "bloom": [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1],
+      "bytes": 106
+    },
+    {
+      "id": "s2",
+      "seq": 12,
+      "blocks": [
+        {
+          "id": "b4",
+          "entries": [
+            { "id": "e8", "key": "apple", "value": "a1", "seq": 8 },
+            { "id": "e9", "key": "banana", "value": "b2", "seq": 9 }
+          ]
+        },
+        {
+          "id": "b5",
+          "entries": [
+            { "id": "e12", "key": "cherry", "value": "c1", "seq": 12 },
+            { "id": "e7", "key": "grape", "value": "g0", "seq": 7 }
+          ]
+        },
+        {
+          "id": "b6",
+          "entries": [
+            { "id": "e10", "key": "lemon", "value": "l0", "seq": 10 },
+            { "id": "e11", "key": "mango", "value": "m0", "seq": 11 }
+          ]
+        }
+      ],
+      "bloom": [1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1],
+      "bytes": 107
+    }
+  ],
+  "levels": [],
+  "jobs": [
+    {
+      "id": "j1",
+      "kind": "flush",
+      "inputs": ["mt3"],
+      "output": [
+        { "id": "e13", "key": "nectarine", "value": "n0", "seq": 13 },
+        { "id": "e14", "key": "orange", "value": "o0", "seq": 14 }
+      ],
+      "progress": 1,
+      "total": 2
+    }
+  ],
+  "config": {
+    "memtableCap": 6,
+    "blockSize": 2,
+    "bloomBits": 16,
+    "bloomHashes": 2,
+    "strategy": "stcs",
+    "l0Trigger": 4,
+    "stcsMinThreshold": 4,
+    "fanout": 3,
+    "targetFileSize": 128
+  },
+  "metrics": {
+    "ingestedBytes": 174,
+    "bytesWritten": 213,
+    "diskBytes": 407,
+    "lastReadFiles": 4,
+    "lastReadBlocks": 2
+  }
+}

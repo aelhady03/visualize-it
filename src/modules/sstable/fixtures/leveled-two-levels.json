@@ -1,0 +1,178 @@
+{
+  "seq": 18,
+  "wal": [
+    {
+      "id": "w1",
+      "entries": [
+        { "id": "e16", "key": "mango", "value": "m1", "seq": 16 },
+        { "id": "e17", "key": "papaya", "value": "p1", "seq": 17 }
+      ]
+    }
+  ],
+  "memtables": [
+    {
+      "id": "mt1",
+      "state": "active",
+      "entries": [
+        { "id": "e16", "key": "mango", "value": "m1", "seq": 16 },
+        { "id": "e17", "key": "papaya", "value": "p1", "seq": 17 }
+      ],
+      "walSegment": "w1"
+    }
+  ],
+  "l0": [
+    {
+      "id": "s2",
+      "seq": 12,
+      "blocks": [
+        {
+          "id": "b1",
+          "entries": [
+            { "id": "e10", "key": "apple", "value": "a1", "seq": 10 },
+            { "id": "e11", "key": "fig", "value": "f0", "seq": 11 }
+          ]
+        },
+        {
+          "id": "b2",
+          "entries": [
+            { "id": "e12", "key": "grape", "value": "g0", "seq": 12 }
+          ]
+        }
+      ],
+      "bloom": [1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+      "bytes": 52
+    },
+    {
+      "id": "s3",
+      "seq": 15,
+      "blocks": [
+        {
+          "id": "b3",
+          "entries": [
+            { "id": "e13", "key": "banana", "value": "b2", "seq": 13 },
+            { "id": "e14", "key": "kiwi", "value": "k0", "seq": 14 }
+          ]
+        },
+        {
+          "id": "b4",
+          "entries": [
+            { "id": "e15", "key": "lemon", "value": "l0", "seq": 15 }
+          ]
+        }
+      ],
+      "bloom": [1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+      "bytes": 54
+    }
+  ],
+  "levels": [
+    [
+      {
+        "id": "l1a",
+        "seq": 6,
+        "blocks": [
+          {
+            "id": "b5",
+            "entries": [
+              { "id": "e5", "key": "apple", "value": "a0", "seq": 5 },
+              { "id": "e6", "key": "banana", "value": "b1", "seq": 6 }
+            ]
+          }
+        ],
+        "bloom": [1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1],
+        "bytes": 35
+      },
+      {
+        "id": "l1b",
+        "seq": 8,
+        "blocks": [
+          {
+            "id": "b6",
+            "entries": [
+              { "id": "e7", "key": "cherry", "value": "c0", "seq": 7 },
+              { "id": "e8", "key": "date", "value": "d1", "seq": 8 }
+            ]
+          }
+        ],
+        "bloom": [0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
+        "bytes": 34
+      },
+      {
+        "id": "l1c",
+        "seq": 9,
+        "blocks": [
+          {
+            "id": "b7",
+            "entries": [
+              { "id": "e9", "key": "elderberry", "value": "e1", "seq": 9 }
+            ]
+          }
+        ],
+        "bloom": [0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "bytes": 22
+      }
+    ],
+    [
+      {
+        "id": "l2a",
+        "seq": 2,
+        "blocks": [
+          {
+            "id": "b8",
+            "entries": [
+              { "id": "e1", "key": "mango", "value": "m0", "seq": 1 },
+              { "id": "e2", "key": "nectarine", "value": "n0", "seq": 2 }
+            ]
+          }
+        ],
+        "bloom": [0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0],
+        "bytes": 38
+      },
+      {
+        "id": "l2b",
+        "seq": 4,
+        "blocks": [
+          {
+            "id": "b9",
+            "entries": [
+              { "id": "e3", "key": "orange", "value": "o0", "seq": 3 },
+              { "id": "e4", "key": "papaya", "value": "p0", "seq": 4 }
+            ]
+          }
+        ],
+        "bloom": [0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
+        "bytes": 36
+      }
+    ]
+  ],
+  "jobs": [
+    {
+      "id": "j1",
+      "kind": "compaction",
+      "inputs": ["l1a", "l1b"],
+      "output": [
+        { "id": "e5", "key": "apple", "value": "a0", "seq": 5 },
+        { "id": "e6", "key": "banana", "value": "b1", "seq": 6 }
+      ],
+      "progress": 1,
+      "total": 2
+    }
+  ],
+  "config": {
+    "memtableCap": 6,
+    "blockSize": 2,
+    "bloomBits": 16,
+    "bloomHashes": 2,
+    "strategy": "leveled",
+    "l0Trigger": 4,
+    "stcsMinThreshold": 4,
+    "fanout": 3,
+    "targetFileSize": 128
+  },
+  "metrics": {
+    "ingestedBytes": 130,
+    "bytesWritten": 510,
+    "diskBytes": 308,
+    "lastReadFiles": 3,
+    "lastReadBlocks": 1
+  }
+}
