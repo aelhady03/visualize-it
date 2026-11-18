@@ -519,7 +519,9 @@ implemented**:
 2. Replay the **unflushed** WAL segments — **per segment** (there may be an
    active and an immutable one): rebuild MemTable(s) from them. Restore the
    `seq` counter to the max seq found in the WAL and SSTables — it was
-   in-memory state too, and the narration should say so.
+   in-memory state too, and the narration should say so. **A replayed
+   immutable MemTable gets a fresh flush job re-queued** (jobs themselves
+   are lost in the crash) — otherwise its data would never reach disk.
 3. Narration: this is what the WAL is *for*; flushed segments were already
    truncated, which is why recovery is cheap.
 
