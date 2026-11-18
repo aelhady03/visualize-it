@@ -39,7 +39,11 @@ const AXIS_W = W - AXIS_X - 8;
 const HEADER_H = 16;
 const MIN_FILE_W = 26;
 const MIN_ROW_H = 18;
-const MAX_FILE_H = 26;
+// Tall enough for three non-overlapping tiers inside a file: header (id +
+// entry marks), block labels, bloom thumbnail. Crowded levels shrink below it.
+const MAX_FILE_H = 40;
+/** Below this height a file has no room for block labels between its tiers. */
+const LABELLED_FILE_H = 34;
 const ENTRY_H = 9;
 
 interface RankAxis {
@@ -132,12 +136,17 @@ function FileGlyph(props: {
     const first = block.entries[0]?.key;
     const hit = block.entries.find((entry) => roles.has(entry.id));
     const role = hit ? roles.get(hit.id) : undefined;
-    return first !== undefined ? { label: first, ...(role ? { role } : {}) } : {};
+    const label = first !== undefined && props.height >= LABELLED_FILE_H ? { label: first } : {};
+    return { ...label, ...(role ? { role } : {}) };
   });
 
   const entries = sstableEntries(file);
+  // Header tier: the file id, then the entry marks AFTER it (never on top of it).
+  const idText = `${file.id} · #${file.seq}`;
+  const marksX = props.x + 8 + idText.length * 4.6;
+  const marksW = Math.max(0, props.x + props.width - 14 - marksX);
   const cellW =
-    entries.length > 0 ? Math.min(14, Math.max(4, (props.width - 8) / entries.length)) : 0;
+    entries.length > 0 ? Math.min(10, Math.max(3, marksW / entries.length)) : 0;
 
   return (
     <g data-file-id={file.id}>
@@ -151,13 +160,13 @@ function FileGlyph(props: {
         reducedMotion={reducedMotion}
       >
         <text x={props.x + 4} y={props.y + 11} fontSize={8} fill="currentColor">
-          {`${file.id} · #${file.seq}`}
+          {idText}
         </text>
         {entries.map((entry, i) => (
           <EntryMark
             key={entry.id}
             entry={entry}
-            x={props.x + 4 + i * cellW}
+            x={marksX + i * cellW}
             y={props.y + 3}
             size={cellW - 1.5}
             role={roles.get(entry.id)}
