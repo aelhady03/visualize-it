@@ -5,7 +5,7 @@
 import { render, screen, cleanup } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { ReactNode } from 'react'
-import { Arrow, BitArray, Box, FileShape, KeyCell } from './index'
+import { Arrow, BitArray, Box, FileShape, KeyCell, keyCellWidth } from './index'
 
 afterEach(cleanup)
 
@@ -82,15 +82,30 @@ describe('Box', () => {
 })
 
 describe('KeyCell', () => {
-  it('renders key and value with a seq badge', () => {
+  it('renders key, value and seq in separate compartments', () => {
     const { container } = render(
       <Svg>
         <KeyCell x={0} y={0} label="alpha" value="v1" seq={7} />
       </Svg>,
     )
-    expect(screen.getByText('alpha→v1')).toBeTruthy()
+    expect(screen.getByText('alpha')).toBeTruthy()
+    expect(screen.getByText('v1')).toBeTruthy()
     expect(screen.getByText('#7')).toBeTruthy()
-    expect(container.querySelector('rect')).toBeTruthy()
+    // the drawn rect is exactly as wide as keyCellWidth reports
+    expect(firstByTag(container, 'rect').getAttribute('width')).toBe(
+      String(keyCellWidth('alpha', 'v1', 7)),
+    )
+  })
+
+  it('marks a tombstone by shape (hatch + headstone) as well as color', () => {
+    const { container } = render(
+      <Svg>
+        <KeyCell x={0} y={0} label="alpha" tone="tombstone" />
+      </Svg>,
+    )
+    expect(container.querySelector('pattern')).toBeTruthy()
+    expect(container.querySelector('[data-glyph="tombstone"]')).toBeTruthy()
+    expect(firstByTag(container, 'rect').getAttribute('fill')).toBe('var(--viz-tombstone)')
   })
 
   it('maps a role to its token color', () => {
@@ -149,6 +164,16 @@ describe('BitArray', () => {
     expect(rects[0].getAttribute('fill')).toBe('var(--viz-miss)')
     expect(rects[1].getAttribute('fill')).toBe('none')
   })
+
+  it('points at each probed position with a shape, not only a color', () => {
+    const { container } = render(
+      <Svg>
+        <BitArray x={0} y={0} bits={[1, 0, 1, 0]} highlight={[0, 2]} />
+      </Svg>,
+    )
+    const probes = [...container.querySelectorAll('[data-probe]')].map((p) => p.getAttribute('data-probe'))
+    expect(probes).toEqual(['0', '2'])
+  })
 })
 
 describe('FileShape', () => {
@@ -177,5 +202,16 @@ describe('FileShape', () => {
       </Svg>,
     )
     expect(container.querySelectorAll('rect')).toHaveLength(2)
+  })
+
+  it('draws metadata footer blocks distinct from data blocks', () => {
+    const { container } = render(
+      <Svg>
+        <FileShape x={0} y={0} width={120} height={30} segments={[{ label: 'a' }]} footer={['index', 'filter']} />
+      </Svg>,
+    )
+    expect(container.querySelectorAll('[data-block]')).toHaveLength(1)
+    expect(container.querySelectorAll('[data-footer]')).toHaveLength(2)
+    expect(screen.getByText('filter')).toBeTruthy()
   })
 })

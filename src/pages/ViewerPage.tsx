@@ -1,14 +1,15 @@
 // ViewerPage — the '/modules/:id/view' route: the lab itself (PLAN.md §4).
 //
-// Layout: OperationBar on top, the module's Render (DiagramPane) in the
-// center, NarrationPanel on the right, StepperControls at the bottom.
-// Below ~1280px the grid collapses to a single column.
+// Layout: OperationBar on top; the instrument (DiagramPane with
+// StepperControls bolted underneath) in the center; the run log
+// (NarrationPanel) on the right. Below 1280px the run log stacks under the
+// instrument.
 //
 // Keyboard shortcuts (PLAN.md §3.3): ←/→ step, Space play/pause, Home/End to
 // the first/last step. Ignored while typing in form fields.
 
 import { Suspense, useEffect, useRef } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { usePlayerStore } from '@core/player/store'
 import { DiagramPane, NarrationPanel, OperationBar, StepperControls } from '@shell/index'
 import { ErrorBoundary } from './ErrorBoundary'
@@ -68,7 +69,19 @@ function ViewerInner({ id }: { id: string }) {
   useKeyboardShortcuts()
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="mx-auto flex max-w-[1500px] flex-col gap-5">
+      <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+        <h1 className="text-[1.5625rem] font-[720] leading-tight tracking-[-0.015em]">
+          {module.meta.title}
+        </h1>
+        <Link
+          to={`/modules/${module.meta.id}`}
+          className="text-[0.875rem] text-pen underline decoration-pen/40 underline-offset-[3px] hover:decoration-pen"
+        >
+          Read the primer
+        </Link>
+      </header>
+
       <OperationBar
         moduleId={id}
         operations={module.operations}
@@ -77,12 +90,14 @@ function ViewerInner({ id }: { id: string }) {
         inputForm={module.InputForm}
       />
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <DiagramPane module={module} />
+      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]">
+        {/* The instrument: diagram stage with the transport bolted underneath. */}
+        <div className="min-w-0 rounded-[12px] bg-well p-2 pb-3 md:p-3">
+          <DiagramPane module={module} />
+          <StepperControls />
+        </div>
         <NarrationPanel />
       </div>
-
-      <StepperControls />
     </div>
   )
 }
@@ -94,8 +109,8 @@ export function ViewerPage() {
     <ErrorBoundary fallback={<ModuleNotFound id={id} />}>
       <Suspense
         fallback={
-          <p className="p-6 text-neutral-500 dark:text-neutral-400" role="status">
-            Loading module…
+          <p className="p-6 text-ink-soft" role="status">
+            Loading the module…
           </p>
         }
       >

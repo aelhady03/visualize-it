@@ -1,5 +1,6 @@
 // DiagramPane — mounts the module's Render in the center of the viewer
-// (PLAN.md §4).
+// (PLAN.md §4), framed as an instrument: a recessed stage with a dot grid,
+// a readout strip naming the current step, and the diagram scaled to fit.
 //
 // Feeds the Render the current snapshot from the player store (falling back
 // to engine.init() before the first run), the previous snapshot, playback
@@ -12,16 +13,37 @@
 // animations.
 
 import { useReducedMotion } from 'motion/react'
-import { useMemo, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentType } from 'react'
 import { usePlayerStore } from '@core/player/store'
 import type { Highlight } from '@core/engine-contract'
 import type { RenderProps, VizModule } from '@core/view-contract'
 import { diffHighlights } from './diff'
 
+/** Small diagrams are drawn up to this much larger than their natural size. */
+const MAX_UPSCALE = 1.5
+
+/**
+ * Let the module's root <svg> scale with the stage: give it a viewBox when it
+ * only declares width/height, then size it to min(stage, natural × 1.5).
+ */
+function useFitSvg(stage: React.RefObject<HTMLDivElement | null>, key: string) {
+  useLayoutEffect(() => {
+    const svg = stage.current?.querySelector(':scope > div > svg')
+    if (!(svg instanceof SVGSVGElement)) return
+    const w = Number(svg.getAttribute('width'))
+    const h = Number(svg.getAttribute('height'))
+    if (!w || !h) return
+    if (!svg.getAttribute('viewBox')) svg.setAttribute('viewBox', `0 0 ${w} ${h}`)
+    svg.style.width = `min(100%, ${Math.round(w * MAX_UPSCALE)}px)`
+    svg.style.height = 'auto'
+  }, [stage, key])
+}
+
 export function DiagramPane({ module }: { module: VizModule<unknown> }) {
   const { steps, index, speed, actions } = usePlayerStore()
   const reducedMotion = useReducedMotion() ?? false
+  const stageRef = useRef<HTMLDivElement>(null)
 
   // Initial state for the very first paint, before any run commits.
   const initial = useMemo(() => module.engine.init(), [module])
@@ -46,23 +68,42 @@ export function DiagramPane({ module }: { module: VizModule<unknown> }) {
   const direction: 1 | -1 = index >= prevIndex ? 1 : -1
 
   const Render = module.Render as unknown as ComponentType<RenderProps<unknown>>
+  const stepKey = current >= 0 ? `${current}:${step?.kind ?? ''}` : 'initial'
+  useFitSvg(stageRef, stepKey)
 
   return (
-    <div
-      aria-label={`${module.meta.title} diagram`}
-      className="flex min-h-80 items-center justify-center overflow-auto rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
-    >
-      <div key={current >= 0 ? `${current}:${step?.kind ?? ''}` : 'initial'}>
-        <Render
-          state={state}
-          prevState={prevState}
-          direction={direction}
-          speed={speed}
-          reducedMotion={reducedMotion}
-          highlights={highlights}
-          onAnimationComplete={() => actions.onAnimationComplete()}
-        />
+    <section aria-label={`${module.meta.title} diagram`} className="flex min-w-0 flex-col">
+      <div className="flex min-h-9 items-center justify-between gap-3 px-2 pb-2 text-[0.8125rem] text-ink-soft">
+        <span className="voice-printed truncate" aria-live="polite">
+          {step ? step.kind : 'initial state'}
+        </span>
+        <span className="voice-printed shrink-0 tabular-nums">
+          {step ? (
+            <>
+              step <span className="text-ink">{current + 1}</span> of {steps.length}
+            </>
+          ) : (
+            'no run yet'
+          )}
+        </span>
       </div>
-    </div>
+
+      <div
+        ref={stageRef}
+        className="viz-stage relative flex min-h-[16rem] items-center justify-center overflow-auto rounded-[7px] p-3 text-viz-text sm:min-h-[22rem] sm:p-6 md:min-h-[26rem] md:p-10"
+      >
+        <div key={stepKey} className="flex w-full justify-center">
+          <Render
+            state={state}
+            prevState={prevState}
+            direction={direction}
+            speed={speed}
+            reducedMotion={reducedMotion}
+            highlights={highlights}
+            onAnimationComplete={() => actions.onAnimationComplete()}
+          />
+        </div>
+      </div>
+    </section>
   )
 }

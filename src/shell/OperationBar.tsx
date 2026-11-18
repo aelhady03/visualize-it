@@ -40,6 +40,11 @@ export interface OperationBarProps {
   }>
 }
 
+const MODE_HELP: Record<Mode, string> = {
+  guided: 'Plays a prepared example, one step at a time.',
+  sandbox: 'Runs the operation on keys and values you type.',
+}
+
 function defaultValues(fields: FieldSpec[] | undefined): OpInput {
   const defaults: OpInput = {}
   for (const field of fields ?? []) {
@@ -109,75 +114,85 @@ export function OperationBar({
 
   return (
     <section aria-label="Operations" className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <div
-          role="group"
-          aria-label="Operation mode"
-          className="flex overflow-hidden rounded-md border border-neutral-300 dark:border-neutral-700"
-        >
-          {(['guided', 'sandbox'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              aria-pressed={mode === m}
-              onClick={() => setMode(m)}
-              className={[
-                'px-3 py-1 text-sm capitalize',
-                mode === m
-                  ? 'bg-sky-600 font-medium text-white'
-                  : 'bg-white text-neutral-700 hover:bg-neutral-100 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800',
-              ].join(' ')}
-            >
-              {m}
-            </button>
-          ))}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+        <div className="flex flex-col gap-1">
+          <div
+            role="group"
+            aria-label="Operation mode"
+            className="inline-flex w-fit rounded-md border border-rule bg-band p-0.5"
+          >
+            {(['guided', 'sandbox'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                aria-pressed={mode === m}
+                onClick={() => setMode(m)}
+                className={[
+                  'h-8 rounded-[5px] px-3 text-[0.875rem] transition-colors',
+                  mode === m
+                    ? 'bg-paper font-[600] text-ink shadow-[0_0_0_1px_var(--rule)]'
+                    : 'text-ink-soft hover:text-ink',
+                ].join(' ')}
+              >
+                {m === 'guided' ? 'Guided' : 'Sandbox'}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="h-6 w-px bg-neutral-300 dark:bg-neutral-700" aria-hidden="true" />
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Run an operation">
+          {operations.map((op) => {
+            const enabled = canRun(op)
+            const isSelected = selected?.id === op.id
+            return (
+              <button
+                key={op.id}
+                type="button"
+                title={enabled ? op.description : `${op.description} No guided example yet: switch to Sandbox.`}
+                aria-pressed={isSelected}
+                disabled={!enabled}
+                onClick={() => run(op)}
+                className={[
+                  'h-9 rounded-md border px-3.5 text-[0.9375rem] font-[550] transition-colors disabled:border-dashed disabled:opacity-45',
+                  isSelected
+                    ? 'border-pen bg-pen text-pen-ink'
+                    : 'border-pen/50 bg-paper text-pen enabled:hover:border-pen enabled:hover:bg-pen/10',
+                ].join(' ')}
+              >
+                {op.label}
+              </button>
+            )
+          })}
 
-        {operations.map((op) => {
-          const enabled = canRun(op)
-          const opMode = op.mode === 'both' ? mode : op.mode
-          return (
-            <button
-              key={op.id}
-              type="button"
-              title={enabled ? op.description : `${op.description} (no guided scenario yet)`}
-              aria-pressed={selected?.id === op.id}
-              disabled={!enabled}
-              onClick={() => run(op)}
-              className={[
-                'rounded-md border px-3 py-1 text-sm transition-colors disabled:opacity-40',
-                selected?.id === op.id
-                  ? 'border-sky-600 bg-sky-600 font-medium text-white'
-                  : 'border-neutral-300 bg-white text-neutral-800 hover:border-sky-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200',
-                opMode === 'guided' ? 'italic' : '',
-              ].join(' ')}
-            >
-              {op.label}
-            </button>
-          )
-        })}
+          {operations.length === 0 && (
+            <p className="text-[0.875rem] text-ink-soft">This module has no operations to run yet.</p>
+          )}
+        </div>
 
-        {operations.length === 0 && (
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">No operations.</p>
-        )}
+        <p className="basis-full text-[0.875rem] text-ink-soft md:basis-auto">{MODE_HELP[mode]}</p>
       </div>
 
       {settings.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3" aria-label="Module settings">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2" aria-label="Module settings">
           {settings.map((setting) => {
             const value = settingValues[setting.id]
             const controlId = `setting-${setting.id}`
             return (
-              <label key={setting.id} className="flex items-center gap-2 text-sm">
-                <span className="text-xs text-neutral-600 dark:text-neutral-400">
-                  {setting.label}
-                </span>
+              <label key={setting.id} className="flex items-center gap-2 text-[0.875rem]">
+                {setting.type === 'boolean' && (
+                  <input
+                    id={controlId}
+                    className="h-4 w-4 accent-[var(--pen)]"
+                    type="checkbox"
+                    checked={Boolean(value)}
+                    onChange={(e) => applySetting(setting.id, e.target.checked)}
+                  />
+                )}
+                <span className="font-[550] text-ink">{setting.label}</span>
                 {setting.type === 'select' && (
                   <select
                     id={controlId}
-                    className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+                    className="h-8 rounded-md border border-rule bg-paper px-2 text-[0.875rem]"
                     value={typeof value === 'string' ? value : String(value)}
                     onChange={(e) => applySetting(setting.id, e.target.value)}
                   >
@@ -188,19 +203,10 @@ export function OperationBar({
                     ))}
                   </select>
                 )}
-                {setting.type === 'boolean' && (
-                  <input
-                    id={controlId}
-                    className="h-4 w-4"
-                    type="checkbox"
-                    checked={Boolean(value)}
-                    onChange={(e) => applySetting(setting.id, e.target.checked)}
-                  />
-                )}
                 {setting.type === 'number' && (
                   <input
                     id={controlId}
-                    className="w-20 rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+                    className="voice-printed h-8 w-20 rounded-md border border-rule bg-paper px-2 text-[0.875rem]"
                     type="number"
                     value={typeof value === 'number' ? value : ''}
                     onChange={(e) =>
@@ -208,11 +214,7 @@ export function OperationBar({
                     }
                   />
                 )}
-                {setting.hint && (
-                  <span className="text-xs text-neutral-500 dark:text-neutral-500">
-                    {setting.hint}
-                  </span>
-                )}
+                {setting.hint && <span className="text-ink-soft">{setting.hint}</span>}
               </label>
             )
           })}
@@ -225,6 +227,7 @@ export function OperationBar({
           values={values}
           onChange={setValues}
           onSubmit={submit}
+          submitLabel={`Run ${selected.label.toLowerCase()}`}
           InputForm={inputForm}
         />
       )}

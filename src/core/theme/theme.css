@@ -1,14 +1,18 @@
-/* Semantic visualization tokens (PLAN.md §3.4).
+/* Visual identity: "a run printout on a lab bench" (see DESIGN.md).
  *
- * Nine tokens, each with a LIGHT and a DARK value (prefers-color-scheme).
- * The palette is colorblind-safe (Okabe-Ito hues). Tombstones differ from
- * every other entity by shape/pattern AND color: they use the muted gray
- * `--viz-tombstone` plus a diagonal cross pattern drawn by the primitives.
+ * Two token sets live here, each with a LIGHT and a DARK value:
  *
- * Registered in Tailwind v4's `@theme` so utilities such as `fill-viz-wal`,
- * `stroke-viz-hit` and `text-viz-memtable` exist. `@theme inline` keeps the
- * utilities pointing at the CSS variables, so the light/dark flip below is
- * picked up everywhere the utilities are used.
+ * 1. Semantic visualization tokens `--viz-*` (PLAN.md §3.4), used by modules
+ *    and primitives. Hue order follows Okabe-Ito so the set stays
+ *    colorblind-safe; values are retuned to sit on the paper surface.
+ *    Tombstones differ by shape AND color: muted graphite plus the hatch and
+ *    headstone glyph drawn by the primitives.
+ * 2. Shell tokens (paper, green bar, ribbon ink, pen blue, highlighter, well)
+ *    used by the app chrome through Tailwind utilities (`bg-paper`,
+ *    `text-ink`, `border-rule`, ...).
+ *
+ * `@theme inline` keeps the utilities pointing at the CSS variables, so the
+ * light/dark flip below is picked up everywhere the utilities are used.
  */
 @theme inline {
   --color-viz-wal: var(--viz-wal);
@@ -21,71 +25,110 @@
   --color-viz-new: var(--viz-new);
   --color-viz-removed: var(--viz-removed);
   --color-viz-text: var(--viz-text);
+  --color-viz-surface: var(--viz-surface);
+
+  --color-paper: var(--paper);
+  --color-band: var(--band);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-rule: var(--rule);
+  --color-pen: var(--pen);
+  --color-pen-ink: var(--pen-ink);
+  --color-hilite: var(--hilite);
+  --color-well: var(--well);
+
+  --font-sans: var(--font-read);
+  --font-mono: var(--font-printed);
 }
 
 :root {
-  --viz-wal: #e69f00; /* orange — WAL / append log segment */
-  --viz-memtable: #cc79a7; /* reddish purple — in-memory structure */
-  --viz-file: #56b4e9; /* sky blue — on-disk file (SSTable) */
-  --viz-tombstone: #8c8c92; /* gray — deleted marker (+ cross pattern) */
-  --viz-hit: #009e73; /* bluish green — read hit */
-  --viz-miss: #d55e00; /* vermillion — read miss */
-  --viz-active: #c79a00; /* darkened yellow — element being worked on */
-  --viz-new: #0072b2; /* blue — entity added by this step */
-  --viz-removed: #4b4b50; /* near-black — entity removed by this step */
-  --viz-text: #21252b; /* neutral ink for diagram labels/annotations */
+  --viz-wal: #b5760b;
+  --font-read: 'Recursive Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-printed: 'Recursive Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --viz-memtable: #a24d8a;
+  --viz-file: #33799f;
+  --viz-tombstone: #737985;
+  --viz-hit: #19865a;
+  --viz-miss: #c24f1c;
+  --viz-active: #a87800;
+  --viz-new: #2443a6;
+  --viz-removed: #4a5161;
+  --viz-text: #1c2537;
+  --viz-surface: #fbfcfa;
+
+  --paper: #f3f6f2;
+  --band: #e1ece0;
+  --ink: #1c2537;
+  --ink-soft: #4f5a6c;
+  --rule: #c9d3cb;
+  --pen: #2443a6;
+  --pen-ink: #ffffff;
+  --hilite: #f2e45c;
+  --well: #dfe5e4;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --viz-wal: #f2b54a;
-    --viz-memtable: #d99cc3;
-    --viz-file: #7cc4ec;
-    --viz-tombstone: #a6a6ad;
-    --viz-hit: #2fb57f;
-    --viz-miss: #f0824e;
-    --viz-active: #f5e75c;
-    --viz-new: #4b9fe8;
-    --viz-removed: #cfcfd6;
-    --viz-text: #e7e9ee;
+    --viz-wal: #e3a640;
+    --viz-memtable: #d38dc0;
+    --viz-file: #6fb0da;
+    --viz-tombstone: #9aa1ad;
+    --viz-hit: #3dbd88;
+    --viz-miss: #ef8752;
+    --viz-active: #efcf4a;
+    --viz-new: #93abff;
+    --viz-removed: #c3c9d4;
+    --viz-text: #e2e7ee;
+    --viz-surface: #121823;
+
+    --paper: #151c27;
+    --band: #1b2533;
+    --ink: #e2e7ee;
+    --ink-soft: #a3adbd;
+    --rule: #2c3849;
+    --pen: #93abff;
+    --pen-ink: #0f1626;
+    --hilite: #5b5222;
+    --well: #0f141d;
   }
 }
 
-/* ---------------------------------------------------------------------------
- * App shell base adjustments.
- *
- * src/index.css (scaffold, owned by the integrator) styles `#root` as a
- * centered 1126px column and sets oversized heading defaults. Those rules are
- * unlayered CSS, so they would beat Tailwind utilities; this file is loaded
- * after index.css and neutralizes them so utility classes take effect.
- * ------------------------------------------------------------------------- */
-#root {
-  width: 100%;
-  max-width: none;
-  margin: 0;
-  text-align: start;
-  border-inline: none;
-  display: block;
+/* The three voices of Recursive (DESIGN.md "Type"). Custom axes need
+ * font-variation-settings; each class sets every axis it relies on. */
+@utility voice-read {
+  font-family: var(--font-read);
+  font-variation-settings:
+    'MONO' 0,
+    'CASL' 0;
 }
 
-h1,
-h2,
-h3,
-h4 {
-  font-size: inherit;
-  font-weight: inherit;
-  line-height: inherit;
-  letter-spacing: inherit;
-  margin: 0;
-  color: inherit;
-  font-family: inherit;
+@utility voice-printed {
+  font-family: var(--font-printed);
+  font-variation-settings:
+    'MONO' 1,
+    'CASL' 0;
+  font-feature-settings: 'tnum' 1;
 }
 
-code {
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-  padding: 0;
-  background: none;
-  color: inherit;
+@utility voice-pen {
+  font-family: var(--font-read);
+  font-variation-settings:
+    'MONO' 0,
+    'CASL' 1;
+}
+
+/* Diagram text: the primitives tag their <text> with these classes. */
+.viz-data {
+  font-family: var(--font-printed);
+  font-variation-settings:
+    'MONO' 1,
+    'CASL' 0;
+}
+
+.viz-label {
+  font-family: var(--font-read);
+  font-variation-settings:
+    'MONO' 0,
+    'CASL' 0;
 }

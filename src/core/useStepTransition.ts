@@ -22,6 +22,12 @@ export const MAX_SPEED = 2
 export const BASE_DURATION = 0.45
 /** Horizontal crossfade shift in px for non-reduced motion. */
 export const SHIFT_PX = 14
+/**
+ * The house curve: a fast start that settles softly, like a record sliding
+ * into place on a printout. Used for every step transition so modules share
+ * one motion vocabulary.
+ */
+export const STEP_EASE = [0.22, 0.8, 0.3, 1] as const
 
 export function clampSpeed(speed: number): number {
   if (Number.isNaN(speed)) return 1
@@ -152,7 +158,7 @@ export function useStepTransition({
   return {
     duration,
     exitDuration: reducedMotion ? 0 : (BASE_DURATION / speedClamped) * 0.6,
-    transition: { duration, ease: 'easeOut' },
+    transition: { duration, ease: STEP_EASE },
     variants,
     nothingToAnimate,
     speed: speedClamped,

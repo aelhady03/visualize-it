@@ -72,16 +72,16 @@ describe('ModuleHomePage', () => {
     expect(screen.getByText('The primer explains this engine.')).toBeTruthy()
     // Meta still renders around it.
     expect(screen.getByText('Home Test Engine')).toBeTruthy()
-    expect(screen.getByText('logs')).toBeTruthy()
-    expect(screen.queryByText('Introduction coming soon')).toBeNull()
+    expect(screen.getByText(/^logs/)).toBeTruthy()
+    expect(screen.queryByText('No primer for this module yet')).toBeNull()
   })
 
   it('keeps the placeholder for modules without an Intro', () => {
     seam.modules['without-intro'] = { ...baseModule, Intro: undefined }
     renderHome('without-intro')
 
-    expect(screen.getByText('Introduction coming soon')).toBeTruthy()
-    expect(screen.getByText(/does not ship an Intro primer yet/)).toBeTruthy()
+    expect(screen.getByText('No primer for this module yet')).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Open the simulator' })).toBeTruthy()
     expect(screen.queryByTestId('intro')).toBeNull()
   })
 })

@@ -15,7 +15,7 @@ const cssText = readFileSync(join(process.cwd(), 'src/core/theme/theme.css'), 'u
 
 describe('tokens.ts JS mapping', () => {
   it('maps every semantic token to its CSS variable', () => {
-    expect(VIZ_TOKEN_KEYS).toHaveLength(10)
+    expect(VIZ_TOKEN_KEYS).toHaveLength(11)
     for (const key of VIZ_TOKEN_KEYS) {
       expect(vizTokens[key]).toBe(`var(--viz-${key})`)
       expect(vizVar(key)).toBe(`var(--viz-${key})`)

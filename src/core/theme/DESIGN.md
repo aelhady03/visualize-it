@@ -81,3 +81,11 @@ Alignment: everything left-aligned to one text edge; numbers right-aligned in ta
   "Open the lab →", "1 operation · 1 setting"). Meta becomes table columns.
 - *Hairline broadsheet rules*: rules appear only where the paper metaphor needs them
   (row bands, tear line between steps), never as decoration.
+
+## Where it lives
+
+- Tokens and the three voices (`voice-read`, `voice-printed`, `voice-pen`; `.viz-data` and
+  `.viz-label` for SVG text) are in `theme.css`, imported through `src/index.css` so
+  Tailwind registers them. Recursive comes from `@fontsource-variable/recursive/full.css`.
+- `/primitives` is a specimen sheet of every primitive in every tone and role. Check it
+  after any change to `src/core/primitives`.

@@ -2,16 +2,12 @@
 //
 // Lists every discovered module (getModules()) grouped by meta.category and
 // ordered by meta.order, with react-router links to each module's home.
-// Renders gracefully when no modules exist.
+// Renders gracefully when no modules exist. Below 1280px it becomes a
+// horizontal strip above the page.
 
-import { NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import { getModules, type ModuleSummary } from '@core/discovery'
-
-const DIFFICULTY_BADGE: Record<string, string> = {
-  beginner: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
-  intermediate: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
-  advanced: 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200',
-}
+import { Difficulty } from './Difficulty'
 
 function groupByCategory(modules: ModuleSummary[]): [string, ModuleSummary[]][] {
   const groups = new Map<string, ModuleSummary[]>()
@@ -23,6 +19,20 @@ function groupByCategory(modules: ModuleSummary[]): [string, ModuleSummary[]][] 
   return [...groups.entries()]
 }
 
+/** The wordmark glyph: three printout rows, the middle one highlighted. */
+function Mark() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true" className="shrink-0">
+      <rect x="3" y="5" width="26" height="5" rx="1.2" fill="var(--band)" />
+      <rect x="3" y="13.5" width="26" height="5" rx="1.2" fill="var(--hilite)" />
+      <rect x="3" y="22" width="26" height="5" rx="1.2" fill="var(--band)" />
+      <rect x="3" y="5" width="8" height="5" rx="1.2" fill="var(--viz-file)" />
+      <rect x="3" y="13.5" width="14" height="5" rx="1.2" fill="var(--ink)" />
+      <rect x="3" y="22" width="20" height="5" rx="1.2" fill="var(--pen)" />
+    </svg>
+  )
+}
+
 export function Sidebar() {
   const modules = getModules()
   const groups = groupByCategory(modules)
@@ -30,23 +40,26 @@ export function Sidebar() {
   return (
     <nav
       aria-label="Modules"
-      className="flex w-full shrink-0 flex-col gap-4 overflow-x-auto border-b border-neutral-200 bg-neutral-100 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900 xl:h-screen xl:w-64 xl:overflow-y-auto xl:border-b-0 xl:border-r xl:px-5 xl:py-6"
+      className="flex w-full shrink-0 items-start gap-6 overflow-x-auto border-b border-rule px-4 py-3 md:px-8 xl:sticky xl:top-0 xl:h-screen xl:w-60 xl:flex-col xl:gap-7 xl:overflow-y-auto xl:border-b-0 xl:border-r xl:px-5 xl:py-7"
     >
-      <header className="shrink-0">
-        <p className="text-lg font-semibold tracking-tight">Visualize It</p>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">
-          Storage engines, step by step
-        </p>
-      </header>
+      <Link to="/" className="flex shrink-0 items-center gap-2.5 rounded-md">
+        <Mark />
+        <span className="flex flex-col leading-tight">
+          <span className="text-[1.0625rem] font-[720] tracking-[-0.01em]">Visualize It</span>
+          <span className="hidden text-[0.8125rem] text-ink-soft xl:block">
+            Storage engines, step by step
+          </span>
+        </span>
+      </Link>
 
       {modules.length === 0 ? (
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">
-          No modules yet — the first engine is on its way.
+        <p className="max-w-56 text-[0.8125rem] text-ink-soft">
+          Add a module folder under src/modules and it shows up here.
         </p>
       ) : (
         groups.map(([category, mods]) => (
-          <section key={category} className="shrink-0">
-            <h2 className="mb-1 px-1 text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+          <section key={category} className="flex shrink-0 items-center gap-2 xl:block xl:w-full">
+            <h2 className="shrink-0 px-2 text-[0.8125rem] font-[600] text-ink-soft xl:mb-1.5">
               {category}
             </h2>
             <ul className="flex gap-1 xl:flex-col">
@@ -56,19 +69,15 @@ export function Sidebar() {
                     to={`/modules/${m.meta.id}`}
                     className={({ isActive }) =>
                       [
-                        'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
+                        'relative flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-[0.9375rem] transition-colors',
                         isActive
-                          ? 'bg-neutral-200 font-medium text-neutral-900 dark:bg-neutral-800 dark:text-white'
-                          : 'text-neutral-700 hover:bg-neutral-200/60 dark:text-neutral-300 dark:hover:bg-neutral-800/60',
+                          ? 'bg-band font-[600] text-ink before:absolute before:inset-y-1.5 before:-left-0.5 before:w-[3px] before:rounded-full before:bg-pen'
+                          : 'text-ink hover:bg-band/60',
                       ].join(' ')
                     }
                   >
                     {m.meta.title}
-                    <span
-                      className={`rounded-full px-1.5 py-0.5 text-[10px] leading-none ${DIFFICULTY_BADGE[m.meta.difficulty] ?? 'bg-neutral-200 dark:bg-neutral-800'}`}
-                    >
-                      {m.meta.difficulty}
-                    </span>
+                    <Difficulty level={m.meta.difficulty} />
                   </NavLink>
                 </li>
               ))}
@@ -76,6 +85,13 @@ export function Sidebar() {
           </section>
         ))
       )}
+
+      <Link
+        to="/primitives"
+        className="hidden shrink-0 px-2 text-[0.8125rem] text-ink-soft underline decoration-rule underline-offset-[3px] hover:text-pen xl:mt-auto xl:block"
+      >
+        Diagram parts for module authors
+      </Link>
     </nav>
   )
 }
