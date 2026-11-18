@@ -352,11 +352,18 @@ describe("invalid input and unknown ops", () => {
 });
 
 describe("contract conformance (PLAN.md §3.5)", () => {
-  it("passes runConformance with the skeleton (empty scenarios, stub ops)", async () => {
-    const report = await runConformance(sstableModule);
-    expect(report.failures).toEqual([]);
-    expect(report.passed).toBe(true);
-  });
+  // NOTE: renders every step of every scenario twice (reduced-motion +
+  // animating pass) in jsdom, which grows past the default 5s as scenarios
+  // land — hence the explicit timeout.
+  it(
+    "passes runConformance (all ops + scenarios)",
+    async () => {
+      const report = await runConformance(sstableModule);
+      expect(report.failures).toEqual([]);
+      expect(report.passed).toBe(true);
+    },
+    60_000,
+  );
 });
 
 describe("advanceJobs (jobs.ts)", () => {
