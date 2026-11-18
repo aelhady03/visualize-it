@@ -327,6 +327,11 @@ Isolation is enforced by tooling, not prose.
   zooms as levels grow; old files can be summarized.
 - Accessibility: `prefers-reduced-motion` honored (highlights only, no
   translation), keyboard-operable player, focus management.
+- **Module briefing (every module's `Intro`):** the Intro page carries the
+  pedagogical briefing — *why it exists*, *tradeoffs* (gain vs cost), *the
+  questions this engine answers*, *ask-yourself questions* with expandable
+  answers, *when to use it*, *when not to*. Plain English, ~150–250 words,
+  consistent with the narration voice (§8).
 
 ## 5. SSTable module spec (`src/modules/sstable/`)
 
