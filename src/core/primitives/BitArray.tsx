@@ -8,7 +8,8 @@
 // positions, not values. Each cell carries its own namespaced layoutId so
 // cells can FLIP between snapshots.
 //
-// Vertical extent: probe pointers sit 9px above `y`; with `showIndices` the
+// Vertical extent: probe pointers sit 9px above `y` (only when `highlight`
+// is set); with `showIndices` the
 // index row ends ~11px below the cells; the caption sits under that.
 
 import { motion, useReducedMotion } from 'motion/react'
@@ -31,7 +32,11 @@ export interface BitArrayProps {
   layoutId?: string
   /** Caption drawn under the row. */
   label?: string
-  /** Draw bit indices under the cells (every 4th when there are more than 8). Defaults to true. */
+  /**
+   * Draw bit indices under the cells (every 4th when there are more than 8).
+   * Defaults to true when cells are at least 8px (big enough to label), so
+   * thumbnail filters drawn inside other glyphs stay clean.
+   */
   showIndices?: boolean
   reducedMotion?: boolean
 }
@@ -46,12 +51,13 @@ export function BitArray({
   role = 'hit',
   layoutId,
   label,
-  showIndices = true,
+  showIndices: showIndicesProp,
   reducedMotion: reducedMotionProp,
 }: BitArrayProps) {
   const systemReduced = useReducedMotion()
   const reduced = reducedMotionProp ?? systemReduced ?? false
 
+  const showIndices = showIndicesProp ?? cell >= 8
   const step = cell + gap
   const width = bits.length * step - gap
   const roleColor = roleVar(role)

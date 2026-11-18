@@ -22,10 +22,13 @@ import { diffHighlights } from './diff'
 
 /** Small diagrams are drawn up to this much larger than their natural size. */
 const MAX_UPSCALE = 1.5
+/** Wide diagrams never shrink below this, so 10px labels stay legible; the stage scrolls instead. */
+const MIN_SCALE = 0.85
 
 /**
  * Let the module's root <svg> scale with the stage: give it a viewBox when it
- * only declares width/height, then size it to min(stage, natural × 1.5).
+ * only declares width/height, then size it to min(stage, natural × 1.5), but
+ * never below natural × 0.85 (the stage scrolls horizontally instead).
  */
 function useFitSvg(stage: React.RefObject<HTMLDivElement | null>, key: string) {
   useLayoutEffect(() => {
@@ -36,6 +39,7 @@ function useFitSvg(stage: React.RefObject<HTMLDivElement | null>, key: string) {
     if (!w || !h) return
     if (!svg.getAttribute('viewBox')) svg.setAttribute('viewBox', `0 0 ${w} ${h}`)
     svg.style.width = `min(100%, ${Math.round(w * MAX_UPSCALE)}px)`
+    svg.style.minWidth = `${Math.round(w * MIN_SCALE)}px`
     svg.style.height = 'auto'
   }, [stage, key])
 }
@@ -90,9 +94,9 @@ export function DiagramPane({ module }: { module: VizModule<unknown> }) {
 
       <div
         ref={stageRef}
-        className="viz-stage relative flex min-h-[16rem] items-center justify-center overflow-auto rounded-[7px] p-3 text-viz-text sm:min-h-[22rem] sm:p-6 md:min-h-[26rem] md:p-10"
+        className="viz-stage relative flex min-h-[16rem] items-center justify-center overflow-auto rounded-[7px] p-3 text-viz-text sm:min-h-[22rem] sm:p-6 md:min-h-[26rem]"
       >
-        <div key={stepKey} className="flex w-full justify-center">
+        <div key={stepKey} className="flex w-full min-w-fit justify-center">
           <Render
             state={state}
             prevState={prevState}
