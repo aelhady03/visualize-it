@@ -8,6 +8,7 @@ import { meta, operations, settings } from "./meta";
 import { init, run } from "./engine";
 import { scenarios } from "./scenarios";
 import { FixtureRender } from "./render";
+import { FixtureIntro } from "./Intro";
 import type { FixtureState } from "./state";
 
 export const fixtureModule: VizModule<FixtureState> = {
@@ -18,6 +19,7 @@ export const fixtureModule: VizModule<FixtureState> = {
   scenarios,
   engine: { init, run },
   Render: FixtureRender,
+  Intro: FixtureIntro,
 };
 
 export default fixtureModule;
