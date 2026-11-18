@@ -17,6 +17,10 @@ printout, with the current line highlighted and the "why" written in pen.
 | Highlighter | `#f2e45c` | `#5b5222` | Only the current step: the line you are reading.    |
 | Bezel       | `#dfe5e4` | `#0f141d` | The instrument well around the diagram.             |
 
+Difficulty uses a three-color ordinal ramp taken from the entity hues: beginner
+`#2a7650`/`#5cc795`, intermediate `#93600a`/`#e0a548`, advanced `#b03c1f`/`#f08a63`
+(light/dark). The step glyph (1–3 bars) and the word always go with the color.
+
 Entity tokens (`--viz-*`) keep Okabe-Ito hue order, so they stay colorblind-safe, and are
 retuned to sit on the paper: WAL ochre, MemTable plum, file steel blue, tombstone graphite
 with a cross glyph (shape and color). Primitives fill with a 16–22% tint and stroke at

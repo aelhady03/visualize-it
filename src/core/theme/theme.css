@@ -36,6 +36,9 @@
   --color-pen-ink: var(--pen-ink);
   --color-hilite: var(--hilite);
   --color-well: var(--well);
+  --color-level-beginner: var(--level-beginner);
+  --color-level-intermediate: var(--level-intermediate);
+  --color-level-advanced: var(--level-advanced);
 
   --font-sans: var(--font-read);
   --font-mono: var(--font-printed);
@@ -66,6 +69,12 @@
   --pen-ink: #ffffff;
   --hilite: #f2e45c;
   --well: #dfe5e4;
+  /* Difficulty: an ordinal ramp borrowed from the entity hues, from the
+   * green-bar green (easy going) through WAL ochre to miss vermilion. All three
+   * clear 4.5:1 on paper, so the colored label stays readable as text. */
+  --level-beginner: #2a7650;
+  --level-intermediate: #93600a;
+  --level-advanced: #b03c1f;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -91,6 +100,9 @@
     --pen-ink: #0f1626;
     --hilite: #5b5222;
     --well: #0f141d;
+    --level-beginner: #5cc795;
+    --level-intermediate: #e0a548;
+    --level-advanced: #f08a63;
   }
 }
 
