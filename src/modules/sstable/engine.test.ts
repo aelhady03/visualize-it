@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { runConformance } from "@core/runConformance";
+import { sstableModule } from "./index";
 import type { EngineState, Entry } from "./state";
 import { init, run } from "./engine/index";
 import { advanceJobs } from "./engine/jobs";
@@ -336,13 +338,29 @@ describe("invalid input and unknown ops", () => {
     expect(run("write", undefined, prev).steps).toEqual([]);
   });
 
-  it("reports not-implemented for every other op id", () => {
+  it("routes every declared op to its stub runner until its lane implements it", () => {
     for (const op of ["read", "update", "delete", "compact", "crash", "write-bulk"]) {
       const r = run(op, {}, init());
       expect(r.steps).toEqual([]);
       expect(r.result).toEqual(init());
-      expect(r.error).toBe("not implemented yet");
+      expect(r.error).toBe("not implemented");
     }
+  });
+
+  it("reports not-implemented for an unknown op id", () => {
+    const prev = init();
+    const r = run("bogus", {}, prev);
+    expect(r.steps).toEqual([]);
+    expect(r.result).toEqual(prev);
+    expect(r.error).toBe("not implemented yet");
+  });
+});
+
+describe("contract conformance (PLAN.md §3.5)", () => {
+  it("passes runConformance with the skeleton (empty scenarios, stub ops)", async () => {
+    const report = await runConformance(sstableModule);
+    expect(report.failures).toEqual([]);
+    expect(report.passed).toBe(true);
   });
 });
 
