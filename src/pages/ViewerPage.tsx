@@ -96,7 +96,7 @@ function ViewerInner({ id }: { id: string }) {
           <DiagramPane module={module} />
           <StepperControls />
         </div>
-        <NarrationPanel />
+        <NarrationPanel intro={module.Intro} />
       </div>
     </div>
   )

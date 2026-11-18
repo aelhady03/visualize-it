@@ -89,3 +89,6 @@ Alignment: everything left-aligned to one text edge; numbers right-aligned in ta
   Tailwind registers them. Recursive comes from `@fontsource-variable/recursive/full.css`.
 - `/primitives` is a specimen sheet of every primitive in every tone and role. Check it
   after any change to `src/core/primitives`.
+- The run log prints a trace under every step (`src/shell/trace.ts`): what the step added,
+  found, superseded or removed, named by key. The viewer offers the module's primer
+  (`VizModule.Intro`) in the run log before the first run.

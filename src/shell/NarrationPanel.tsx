@@ -8,13 +8,20 @@
 // optional "why this matters" note is set in the pen voice, and the step's
 // metrics follow as a small table with the change since the previous step.
 //
+// Under every line, a trace names what that step changed (added, found,
+// superseded, removed...) by key, so the run can be read like a trace.
+// Before the first run, the module's primer (VizModule.Intro) is offered here.
+//
 // Clicking a past line scrubs back to it. Renders gracefully when there is no
 // run yet (empty steps).
 
 import { motion, useReducedMotion } from 'motion/react'
 import { Fragment, useEffect, useRef } from 'react'
+import type { ComponentType } from 'react'
 import { usePlayerStore } from '@core/player/store'
-import type { Metrics } from '@core/engine-contract'
+import type { Metrics, Step } from '@core/engine-contract'
+import { roleVar } from '@core/theme/tokens'
+import { traceStep } from './trace'
 
 function delta(now: Metrics[string], before: Metrics[string] | undefined): string | null {
   if (typeof now !== 'number' || typeof before !== 'number' || now === before) return null
@@ -22,7 +29,32 @@ function delta(now: Metrics[string], before: Metrics[string] | undefined): strin
   return d > 0 ? `+${d}` : `${d}`
 }
 
-export function NarrationPanel() {
+/** What this step changed, entity by entity: the trace under each log line. */
+function Trace({ step, prev, current }: { step: Step<unknown>; prev?: Step<unknown>; current: boolean }) {
+  const { lines } = traceStep(step, prev)
+  if (lines.length === 0) return null
+  return (
+    // Spans, not a list: the trace sits inside the line's <button>.
+    <span className={`mt-1 flex flex-col gap-0.5 text-[0.8125rem] ${current ? 'text-ink' : 'text-ink-soft'}`}>
+      {lines.map((line) => (
+        <span key={line.role} className="flex items-baseline gap-1.5">
+          <svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true" className="shrink-0 self-center">
+            <rect x="0.5" y="0.5" width="7" height="7" rx="1.5" fill={roleVar(line.role)} />
+          </svg>
+          <span className="shrink-0">{line.verb}</span>
+          <span className="voice-printed min-w-0 break-words">{line.names.join(', ')}</span>
+        </span>
+      ))}
+    </span>
+  )
+}
+
+export interface NarrationPanelProps {
+  /** The module's primer (VizModule.Intro), offered before the first run. */
+  intro?: ComponentType
+}
+
+export function NarrationPanel({ intro: Intro }: NarrationPanelProps = {}) {
   const { steps, chapters, index, actions } = usePlayerStore()
   const reduced = useReducedMotion() ?? false
   const currentRef = useRef<HTMLLIElement>(null)
@@ -64,6 +96,16 @@ export function NarrationPanel() {
             Use <kbd className="voice-printed">←</kbd> and <kbd className="voice-printed">→</kbd> to
             step, <kbd className="voice-printed">Space</kbd> to play or pause.
           </p>
+          {Intro && (
+            <details className="mt-5 border-t border-rule pt-4" open>
+              <summary className="cursor-pointer select-none text-[0.9375rem] font-[650]">
+                Primer: read this first
+              </summary>
+              <div className="mt-2 max-h-[50vh] overflow-y-auto pr-1 text-[0.9375rem] leading-[1.6] [&_p]:text-[0.9375rem] [&_p]:leading-[1.6]">
+                <Intro />
+              </div>
+            </details>
+          )}
         </div>
       ) : (
         <>
@@ -112,11 +154,12 @@ export function NarrationPanel() {
                           className={
                             isCurrent
                               ? 'text-[1rem] leading-[1.55] text-ink'
-                              : 'line-clamp-2 text-[0.875rem] leading-[1.5] text-ink-soft'
+                              : 'text-[0.875rem] leading-[1.5] text-ink-soft'
                           }
                         >
                           {s.narration}
                         </span>
+                        <Trace step={s} prev={i > 0 ? steps[i - 1] : undefined} current={isCurrent} />
                       </span>
                     </button>
                   </li>
