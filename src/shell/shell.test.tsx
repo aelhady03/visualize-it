@@ -218,8 +218,8 @@ describe('OperationBar', () => {
     expect(screen.getByRole('button', { name: 'Write' })).toBeTruthy()
     // 'Compact' is guided-only with no scenario: rendered but disabled.
     expect((screen.getByRole('button', { name: 'Compact' }) as HTMLButtonElement).disabled).toBe(true)
-    expect(screen.getByRole('button', { name: 'guided' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'sandbox' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Guided' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Sandbox' })).toBeTruthy()
     expect(screen.getByLabelText('Strategy')).toBeTruthy()
   })
 
@@ -230,7 +230,7 @@ describe('OperationBar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Write' }))
     // "Write" is mode 'both' and the (empty) store is in guided mode: no form.
     expect(screen.queryByLabelText(/Key/)).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'sandbox' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Sandbox' }))
     fireEvent.click(screen.getByRole('button', { name: 'Write' }))
     expect(screen.getByLabelText(/Key/)).toBeTruthy()
   })
@@ -239,10 +239,10 @@ describe('OperationBar', () => {
     withRouter(
       <OperationBar moduleId="sstable" operations={OPERATIONS} settings={SETTINGS} scenarios={[]} />,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'sandbox' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Sandbox' }))
     fireEvent.click(screen.getByRole('button', { name: 'Write' }))
     fireEvent.change(screen.getByLabelText(/Key/), { target: { value: 'alpha' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Run write' }))
     expect(seam.store.actions.startRun).toHaveBeenCalledWith('sstable', 'sandbox', {
       opId: 'write',
       input: { key: 'alpha' },

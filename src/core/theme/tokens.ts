@@ -5,7 +5,8 @@
 // variable references so modules and primitives can use them in SVG
 // attributes (fill/stroke) without hard-coding colors.
 //
-// Import the CSS once, at app entry (src/main.tsx imports theme.css).
+// Import the CSS once, through Tailwind: src/index.css @imports theme.css.
+// The design rationale for the values is in ./DESIGN.md.
 
 import type { Highlight } from '../engine-contract'
 
@@ -20,6 +21,7 @@ export const VIZ_TOKEN_KEYS = [
   'new',
   'removed',
   'text',
+  'surface',
 ] as const
 
 export type VizTokenKey = (typeof VIZ_TOKEN_KEYS)[number]
@@ -47,6 +49,9 @@ export const vizTokens: Readonly<Record<VizTokenKey, string>> = {
   // `currentColor` for text; they may switch to var(--viz-text) later so
   // diagram text stays legible on any surface.
   text: vizVar('text'),
+  // Diagram background (the instrument well's floor). Use it to knock out
+  // lines behind labels, or as the "empty" fill of a slot.
+  surface: vizVar('surface'),
 }
 
 /** Highlight role → semantic token key (role colors, PLAN.md §3.1). */

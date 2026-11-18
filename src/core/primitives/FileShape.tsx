@@ -1,14 +1,17 @@
-// FileShape — an on-disk file glyph (PLAN.md §3.4).
+// FileShape — an on-disk file, drawn as an SSTable (PLAN.md §3.4).
 //
-// A page with a folded corner (the classic "file" silhouette) in the
-// `--viz-file` tone, with a label and optional segments: vertical strips that
-// let a module sketch the blocks of an SSTable. Segments can carry their own
-// highlight roles.
+// A page with a folded corner in the `--viz-file` tone. Inside it, optional
+// `segments` are the file's data blocks: banded strips (like rows of a
+// green-bar printout) labelled with each block's first key, each able to
+// carry its own highlight role. Optional `footer` blocks (e.g. ['index',
+// 'filter']) draw the metadata an SSTable keeps after its data blocks, with a
+// dotted edge so data and metadata never read as the same thing.
 
 import { motion, useReducedMotion } from 'motion/react'
 import type { ReactNode } from 'react'
 import type { Highlight } from '@core/engine-contract'
 import { roleVar, vizVar } from '@core/theme/tokens'
+import { RoleRing } from './marks'
 
 export interface FileSegment {
   /** Strip label (e.g. a block's first key). */
@@ -26,13 +29,17 @@ export interface FileShapeProps {
   /** Namespaced layout id: `${containerId}:${entityId}` (PLAN.md §3.1). */
   layoutId?: string
   role?: Highlight['role']
-  /** Vertical strips inside the file (e.g. SSTable blocks). */
+  /** Data blocks inside the file (e.g. SSTable blocks), left to right. */
   segments?: FileSegment[]
+  /** Metadata blocks after the data blocks, e.g. ['index', 'filter']. */
+  footer?: string[]
   reducedMotion?: boolean
   children?: ReactNode
 }
 
 const CORNER = 10
+const INSET = 3
+const FOOTER_W = 26
 
 export function FileShape({
   x,
@@ -43,6 +50,7 @@ export function FileShape({
   layoutId,
   role,
   segments = [],
+  footer = [],
   reducedMotion: reducedMotionProp,
   children,
 }: FileShapeProps) {
@@ -66,49 +74,58 @@ export function FileShape({
     `M ${x + width - CORNER} ${y}`,
     `L ${x + width - CORNER} ${y + CORNER}`,
     `L ${x + width} ${y + CORNER}`,
+    'Z',
   ].join(' ')
 
-  const segmentWidth = segments.length > 0 ? (width - CORNER - 6) / segments.length : 0
+  const footerW = footer.length * FOOTER_W
+  const dataW = width - CORNER - INSET * 2 - footerW
+  const segmentWidth = segments.length > 0 ? dataW / segments.length : 0
+  const innerY = y + INSET
+  const innerH = height - INSET * 2
 
   return (
     <motion.g layoutId={reduced ? undefined : layoutId} data-layout-id={reduced ? undefined : layoutId}>
-      <path d={outlinePath} fill={fill} stroke={outline} strokeWidth={role ? 2.5 : 1.25} />
-      <path d={foldPath} fill="none" stroke="currentColor" strokeWidth={1} opacity={0.6} />
+      <path
+        d={outlinePath}
+        fill={fill}
+        fillOpacity={0.14}
+        stroke={outline}
+        strokeWidth={role ? 2 : 1.25}
+        strokeLinejoin="round"
+      />
+      <path d={foldPath} fill={fill} fillOpacity={0.4} stroke={outline} strokeWidth={1} strokeLinejoin="round" />
 
-      {roleColor && (
-        <motion.path
-          d={outlinePath}
-          fill="none"
-          stroke={roleColor}
-          strokeWidth={2.5}
-          style={{ pointerEvents: 'none' }}
-          animate={reduced ? undefined : { opacity: [0.2, 0.7, 0.2] }}
-          transition={reduced ? undefined : { duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
-        />
+      {role && (
+        <RoleRing x={x} y={y} width={width} height={height} rx={0} role={role} reduced={reduced} d={outlinePath} />
       )}
 
       {segments.map((segment, i) => {
-        const sx = x + 3 + i * segmentWidth
-        const segColor = segment.role ? roleVar(segment.role) : 'currentColor'
+        const sx = x + INSET + i * segmentWidth
+        const segColor = segment.role ? roleVar(segment.role) : fill
+        const w = Math.max(1, segmentWidth - 1.5)
         return (
-          <g key={i}>
+          <g key={i} data-block={i}>
             <rect
               x={sx}
-              y={y + 3}
-              width={Math.max(1, segmentWidth - 1.5)}
-              height={height - 6}
-              fill="none"
+              y={innerY}
+              width={w}
+              height={innerH}
+              rx={1.5}
+              fill={segColor}
+              fillOpacity={segment.role ? 0.28 : i % 2 === 0 ? 0.2 : 0.1}
               stroke={segColor}
-              strokeWidth={segment.role ? 2 : 1}
-              opacity={0.55}
+              strokeOpacity={segment.role ? 1 : 0.5}
+              strokeWidth={segment.role ? 1.75 : 0.75}
             />
             {segment.label !== undefined && segmentWidth >= 12 && (
               <text
-                x={sx + segmentWidth / 2}
+                className="viz-data"
+                x={sx + w / 2}
                 y={y + height / 2}
                 textAnchor="middle"
                 dominantBaseline="central"
                 fontSize={9}
+                fontWeight={600}
                 fill="currentColor"
               >
                 {segment.label}
@@ -118,8 +135,37 @@ export function FileShape({
         )
       })}
 
+      {footer.map((name, i) => {
+        const fx = x + INSET + dataW + i * FOOTER_W + 1
+        return (
+          <g key={`footer-${name}`} data-footer={name}>
+            <path
+              d={`M ${fx} ${innerY} h ${FOOTER_W - 2.5} v ${innerH} h ${-(FOOTER_W - 2.5)} Z`}
+              fill="none"
+              stroke={fill}
+              strokeWidth={0.9}
+              strokeDasharray="1.5 2"
+            />
+            <text
+              className="viz-label"
+              x={fx + (FOOTER_W - 2.5) / 2}
+              y={y + height / 2}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize={7.5}
+              fill="currentColor"
+              fillOpacity={0.75}
+              transform={`rotate(-90 ${fx + (FOOTER_W - 2.5) / 2} ${y + height / 2})`}
+            >
+              {name}
+            </text>
+          </g>
+        )
+      })}
+
       {label !== undefined && (
         <text
+          className="viz-data"
           x={x + width / 2}
           y={y + height + 14}
           textAnchor="middle"
