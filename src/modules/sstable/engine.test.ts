@@ -338,14 +338,9 @@ describe("invalid input and unknown ops", () => {
     expect(run("write", undefined, prev).steps).toEqual([]);
   });
 
-  it("routes every declared op to its stub runner until its lane implements it", () => {
-    for (const op of ["read", "update", "delete", "compact", "crash", "write-bulk"]) {
-      const r = run(op, {}, init());
-      expect(r.steps).toEqual([]);
-      expect(r.result).toEqual(init());
-      expect(r.error).toBe("not implemented");
-    }
-  });
+  // NOTE: the per-op "stub runner" test was removed when lanes started
+  // implementing their ops — implemented behavior is covered by each lane's
+  // own tests and by runConformance.
 
   it("reports not-implemented for an unknown op id", () => {
     const prev = init();
