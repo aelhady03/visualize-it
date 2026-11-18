@@ -17,12 +17,17 @@ import { motion } from "motion/react";
 import type { RenderProps } from "@core/view-contract";
 import type { FixtureItem, FixtureState } from "../state";
 
+// Rows are tinted at TINT opacity with a full-strength stroke, and text
+// sits in `--viz-text` (ribbon ink), so cells stay legible in both light
+// and dark without painting ink over a solid fill (DESIGN.md "Color").
+const TINT = 0.18;
+
 const ROLE_FILLS: Record<string, string> = {
-  active: "var(--viz-active, #f59e0b)",
-  hit: "var(--viz-hit, #22c55e)",
-  miss: "var(--viz-miss, #ef4444)",
-  removed: "var(--viz-removed, #ef4444)",
-  new: "var(--viz-new, #3b82f6)",
+  active: "var(--viz-active)",
+  hit: "var(--viz-hit)",
+  miss: "var(--viz-miss)",
+  removed: "var(--viz-removed)",
+  new: "var(--viz-new)",
 };
 
 const ROW_H = 36;
@@ -40,7 +45,7 @@ interface RowProps {
 
 function Row({ item, index, role, ghost, direction, speed, reducedMotion }: RowProps) {
   const y = ROW_Y(index);
-  const fill = (role && ROLE_FILLS[role]) || "var(--viz-memtable, #e2e8f0)";
+  const fill = (role && ROLE_FILLS[role]) || "var(--viz-memtable)";
   const content = (
     <>
       <rect
@@ -50,13 +55,16 @@ function Row({ item, index, role, ghost, direction, speed, reducedMotion }: RowP
         height={28}
         rx={6}
         fill={fill}
-        stroke={ghost ? "var(--viz-tombstone, #94a3b8)" : "none"}
+        fillOpacity={TINT}
+        stroke={ghost ? "var(--viz-tombstone)" : fill}
+        strokeOpacity={1}
+        strokeWidth={1}
         strokeDasharray={ghost ? "4 3" : undefined}
       />
-      <text x={36} y={y + 19} fontSize={13} fill="var(--viz-file, #0f172a)">
+      <text x={36} y={y + 19} fontSize={13} fill="var(--viz-text)">
         {ghost ? `+ ${item.value} (staged)` : item.value}
       </text>
-      <text x={352} y={y + 19} textAnchor="end" fontSize={11} fill="#64748b">
+      <text x={352} y={y + 19} textAnchor="end" fontSize={11} fill="var(--viz-text)" fillOpacity={0.62}>
         seq {item.seq}
       </text>
     </>
@@ -94,12 +102,19 @@ export function FixtureRender(props: RenderProps<FixtureState>) {
       role="img"
       aria-label="Append-only list"
     >
-      <rect x={0} y={0} width={400} height={height} rx={8} fill="var(--viz-file, #f8fafc)" />
-      <text x={12} y={16} fontSize={11} fill="#64748b">
+      <rect x={0} y={0} width={400} height={height} rx={8} fill="var(--viz-surface)" />
+      <text x={12} y={16} fontSize={11} fill="var(--viz-text)" fillOpacity={0.7}>
         append-only list · capacity {state.capacity}
       </text>
       {rowCount === 0 ? (
-        <text x={200} y={height / 2 + 5} textAnchor="middle" fontSize={14} fill="#64748b">
+        <text
+          x={200}
+          y={height / 2 + 5}
+          textAnchor="middle"
+          fontSize={14}
+          fill="var(--viz-text)"
+          fillOpacity={0.7}
+        >
           empty list
         </text>
       ) : (
