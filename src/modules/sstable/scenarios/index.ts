@@ -13,7 +13,8 @@ import { writeScenarios } from "./write";
 import { readScenarios } from "./read";
 import { updateScenarios } from "./update";
 import { deleteScenarios } from "./delete";
-import { leveledCompactionScenarios, stcsCompactionScenarios } from "./compaction";
+import { stcsCompactionScenarios } from "./compaction-stcs";
+import { leveledCompactionScenarios } from "./compaction-leveled";
 import { crashScenarios } from "./crash";
 
 export const scenarios: Scenario<EngineState>[] = [
