@@ -93,12 +93,12 @@ describe("crash & recover (engine/crash.ts)", () => {
     expect(r.steps.map(kindOf)).toEqual([
       "crash.memory-wiped",
       "crash.replay-segment",
+      "crash.flush-requeued",
       "crash.replay-segment",
       "crash.seq-restored",
     ]);
 
     const s = r.result;
-    expect(s.jobs).toEqual([]); // jobs were in-memory state too
     expect(s.memtables.length).toBe(2);
     const [active, immutable] = s.memtables;
     expect(active.state).toBe("active");
@@ -110,6 +110,69 @@ describe("crash & recover (engine/crash.ts)", () => {
     expect(immutable.walSegment).toBe("w1");
     expect(s.wal).toEqual(before.wal);
     expect(s.seq).toBe(before.seq);
+  });
+
+  it("re-queues a fresh flush job for the replayed immutable table (PLAN §5.2)", () => {
+    const before = writeAll(init(), SIX_WRITES);
+    const r = run("crash", undefined, before);
+
+    // the requeue step itself carries the new job in its snapshot
+    const requeue = r.steps.find((st) => st.kind === "crash.flush-requeued");
+    expect(requeue).toBeTruthy();
+    expect(requeue!.state.jobs).toEqual([
+      { id: "j1", kind: "flush", inputs: ["mt1"], output: [], progress: 0, total: 2 },
+    ]);
+
+    // the old job id (j7) is gone: jobs were lost with the crash; the fresh
+    // one derives deterministically from the rebuilt memtable id
+    expect(before.jobs.map((j) => j.id)).toEqual(["j7"]);
+    const s = r.result;
+    expect(s.jobs).toEqual([
+      { id: "j1", kind: "flush", inputs: ["mt1"], output: [], progress: 0, total: 2 },
+    ]);
+    // the active table gets no job — it takes writes instead
+    expect(s.jobs.every((j) => j.inputs[0] !== "mt7")).toBe(true);
+  });
+
+  it("subsequent writes advance the re-queued flush to l0 and truncate its WAL segment", () => {
+    const before = writeAll(init(), SIX_WRITES);
+    const afterCrash = run("crash", undefined, before).result;
+    expect(afterCrash.l0.length).toBe(0);
+
+    // first write: advances the re-queued job 1/2 — output = first block
+    const w1 = run("write", { key: "grape", value: "g0" }, afterCrash);
+    expect(w1.steps.map(kindOf)).toEqual(["wal.append", "memtable.insert", "jobs.advance"]);
+    expect(w1.result.jobs[0].progress).toBe(1);
+    expect(w1.result.l0.length).toBe(0);
+    expect(w1.result.wal.length).toBe(2); // w1 still protected by its WAL
+
+    // second write: job reaches 2/2 → flush.complete lands the SSTable,
+    // drops the immutable table, truncates its WAL segment
+    const w2 = run("write", { key: "kiwi", value: "k0" }, w1.result);
+    expect(w2.steps.map(kindOf)).toEqual([
+      "wal.append",
+      "memtable.insert",
+      "jobs.advance",
+      "flush.complete",
+    ]);
+    const s = w2.result;
+    expect(s.jobs).toEqual([]);
+    expect(s.l0.length).toBe(1);
+    expect(s.l0[0].id).toBe("s1"); // flushed from the rebuilt mt1
+    expect(sstableEntries(s.l0[0]).length).toBe(6);
+    expect(sstableEntries(s.l0[0]).map((e) => e.key)).toEqual([
+      "apple",
+      "banana",
+      "cherry",
+      "date",
+      "elderberry",
+      "fig",
+    ]);
+    expect(s.memtables.length).toBe(1);
+    expect(s.memtables[0].id).toBe("mt7");
+    expect(s.memtables[0].entries.map((e) => e.key)).toEqual(["grape", "kiwi"]);
+    expect(s.wal.map((w) => w.id)).toEqual(["w7"]); // w1 truncated
+    expect(s.wal[0].entries.map((e) => e.key)).toEqual(["grape", "kiwi"]);
   });
 
   it("restores seq from the WAL AND the SSTables, even when the WAL is empty", () => {
@@ -152,6 +215,11 @@ describe("crash & recover (engine/crash.ts)", () => {
     const a = run("crash", undefined, before);
     const b = run("crash", undefined, before);
     expect(a).toEqual(b);
+    // the re-queued flush job is part of the deterministic output
+    expect(a.result.jobs).toEqual([
+      { id: "j1", kind: "flush", inputs: ["mt1"], output: [], progress: 0, total: 2 },
+    ]);
+    expect(b.result.jobs).toEqual(a.result.jobs);
     for (const step of a.steps) {
       expect(JSON.parse(JSON.stringify(step.state))).toEqual(step.state);
     }
@@ -291,6 +359,7 @@ describe("scenario crash-replay (scenarios/crash.ts)", () => {
       "write",
       "crash",
       "write",
+      "write",
     ]);
 
     let state = init();
@@ -304,18 +373,20 @@ describe("scenario crash-replay (scenarios/crash.ts)", () => {
 
     expect(kinds).toContain("crash.memory-wiped");
     expect(kinds.filter((k) => k === "crash.replay-segment").length).toBe(2);
+    expect(kinds).toContain("crash.flush-requeued");
     expect(kinds).toContain("crash.seq-restored");
 
-    // final: the immutable table was rebuilt with its 6 entries, and the
-    // post-crash write landed in the rebuilt active table with the next seq
-    expect(state.memtables.length).toBe(2);
-    const immutable = state.memtables.find((m) => m.id === "mt1");
-    expect(immutable?.state).toBe("immutable");
-    expect(immutable?.entries.length).toBe(6);
+    // final: the re-queued flush completed across the two follow-up writes,
+    // so the replayed data reached disk (s1) and its WAL segment was truncated
+    expect(state.l0.length).toBe(1);
+    expect(sstableEntries(state.l0[0]).length).toBe(6);
+    expect(state.memtables.length).toBe(1);
     const active = state.memtables.find((m) => m.id === "mt7");
     expect(active?.state).toBe("active");
-    expect(active?.entries.map((e) => e.key)).toEqual(["grape"]);
-    expect(state.wal.find((w) => w.id === "w7")?.entries.map((e) => e.key)).toEqual(["grape"]);
-    expect(state.seq).toBe(8); // restored to 7, the follow-up write took it
+    expect(active?.entries.map((e) => e.key)).toEqual(["grape", "kiwi"]);
+    expect(state.wal.map((w) => w.id)).toEqual(["w7"]);
+    expect(state.wal[0].entries.map((e) => e.key)).toEqual(["grape", "kiwi"]);
+    expect(state.jobs).toEqual([]);
+    expect(state.seq).toBe(9); // restored to 7, the two follow-up writes took it
   });
 });

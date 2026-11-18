@@ -9,9 +9,12 @@
  *    path's own insert semantics (sorted insert, in-place replace), so the
  *    table comes back exactly as it was in memory. The newest segment — the
  *    one the active table was appending to — is rebuilt as the new ACTIVE
- *    MemTable; older segments come back as immutable tables. Jobs stay lost:
- *    they were in-memory state too, and nothing here recreates them.
- * 3. `crash.seq-restored` — the seq counter was in-memory state as well, so
+ *    MemTable; older segments come back as immutable tables.
+ * 3. `crash.flush-requeued` — every replayed IMMUTABLE MemTable gets a fresh
+ *    flush job (2 units) re-queued, or its data would never reach disk: the
+ *    jobs themselves were lost with the crash, but the need to flush is
+ *    derived from the data. The active table takes writes and needs no job.
+ * 4. `crash.seq-restored` — the seq counter was in-memory state as well, so
  *    it is rebuilt as one past the highest seq found anywhere in the WAL and
  *    the SSTables. Nothing else is truncated: replay never touches the log;
  *    flushed segments were already gone, which is why recovery is cheap.
@@ -23,7 +26,7 @@
  */
 
 import type { Highlight, OpInput, RunResult, Step } from "@core/engine-contract";
-import type { EngineState, MemTable, WalSegment } from "../state";
+import type { EngineState, Job, MemTable, WalSegment } from "../state";
 import { sstableEntries } from "../lib/derive";
 import { insertIntoActive } from "./write";
 
@@ -80,6 +83,15 @@ export function maxDurableSeq(state: EngineState): number {
   return max;
 }
 
+/**
+ * Stable flush-job id for a rebuilt MemTable, "mt3" → "j3" — derived from the
+ * memtable id (not from `state.seq`, which is wiped mid-replay), so recovery
+ * is deterministic and unique per table no matter how many segments replay.
+ */
+export function jobIdForMemtable(memtableId: string): string {
+  return `j${memtableId.replace(/\D+/g, "")}`;
+}
+
 export function runCrash(state: EngineState, input: OpInput | undefined): RunResult<EngineState> {
   void input; // crash takes no input
   const steps: Step<EngineState>[] = [];
@@ -130,9 +142,36 @@ export function runCrash(state: EngineState, input: OpInput | undefined): RunRes
         ],
       ),
     );
+
+    // 3. crash.flush-requeued — a rebuilt immutable table still owes a flush:
+    // the jobs themselves were lost, so recovery re-queues one (2 units) or
+    // the replayed data would never reach disk.
+    if (!isActive) {
+      const job: Job = {
+        id: jobIdForMemtable(memtable.id),
+        kind: "flush",
+        inputs: [memtable.id],
+        output: [],
+        progress: 0,
+        total: 2,
+      };
+      next = { ...next, jobs: [...next.jobs, job] };
+      steps.push(
+        step(
+          "crash.flush-requeued",
+          next,
+          `Recovery re-queues the flush for ${memtable.id}: a fresh 2-unit flush job starts so the replayed data still reaches disk as an SSTable — the crash cost it nothing but time.`,
+          "A rebuilt immutable table is in-memory data waiting to be flushed; without a job it would never leave memory.",
+          [
+            { id: job.id, role: "new" },
+            { id: memtable.id, role: "active" },
+          ],
+        ),
+      );
+    }
   }
 
-  // 3. crash.seq-restored — the counter was in-memory state too.
+  // 4. crash.seq-restored — the counter was in-memory state too.
   const restoredSeq = maxDurableSeq(state) + 1;
   next = { ...next, seq: restoredSeq };
   steps.push(
