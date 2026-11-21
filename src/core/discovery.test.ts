@@ -24,13 +24,17 @@ function summary(category: string, order: number): ModuleSummary {
 }
 
 describe("getModules", () => {
-  it("discovers the fixture module through the eager meta glob", () => {
+  it("hides internal modules (id starting with _) from the lists", () => {
     const modules = getModules();
     expect(Array.isArray(modules)).toBe(true);
-    const fixture = modules.find((candidate) => candidate.meta.id === "_fixture");
-    expect(fixture).toBeDefined();
-    expect(fixture!.operations.length).toBeGreaterThan(0);
-    expect(fixture!.settings.length).toBeGreaterThan(0);
+    expect(modules.some((candidate) => candidate.meta.id.startsWith("_"))).toBe(false);
+  });
+
+  it("still lists the public modules", () => {
+    const modules = getModules();
+    const ids = modules.map((entry) => entry.meta.id);
+    expect(ids).toContain("append-log");
+    expect(ids).toContain("sstable");
   });
 });
 

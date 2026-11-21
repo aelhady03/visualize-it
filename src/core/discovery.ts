@@ -79,12 +79,16 @@ function assertGlobsConsistent(): void {
  */
 export function getModules(): ModuleSummary[] {
   assertGlobsConsistent()
+  // Internal modules (id starting with "_", e.g. _fixture) stay loadable by
+  // URL for module authors but never appear in the sidebar/module lists.
   return sortSummaries(
-    Object.entries(metaModules).map(([, summary]) => ({
-      meta: summary.meta,
-      operations: summary.operations,
-      settings: summary.settings,
-    })),
+    Object.entries(metaModules)
+      .filter(([, summary]) => !summary.meta.id.startsWith('_'))
+      .map(([, summary]) => ({
+        meta: summary.meta,
+        operations: summary.operations,
+        settings: summary.settings,
+      })),
   )
 }
 
