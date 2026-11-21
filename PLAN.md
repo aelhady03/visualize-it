@@ -636,7 +636,7 @@ Current status (see each module's `STATUS.md` for detail):
 
 | Module | Status |
 |--------|--------|
-| sstable | foundation merged (state, libs, write/flush/jobs engine); Wave 3 pending: read, update/delete, crash/bulk, STCS + leveled compaction, render + scenarios |
+| sstable | DONE through Wave 3 — all ops merged (write, read, update, delete, crash, bulk, STCS + leveled compaction) with renders, scenarios, 340+ tests; Wave 4 polish pending |
 | append-log | DONE — full module merged; validated contract v1 |
 | hash-index | not started |
 
