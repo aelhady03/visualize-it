@@ -174,9 +174,11 @@ interface Scenario<S> {
 }
 
 // Guided-mode mapping rule (implemented by the shell): an operation button
-// is enabled in guided mode when a scenario exists whose FIRST op is that
-// operation (fallback: a scenario whose id equals the op id). Selecting the
-// button starts that scenario.
+// is enabled in guided mode when a scenario exists for it — first by
+// scenario id == op id, then by the scenario's FIRST op, then by any
+// scenario whose ops CONTAIN the op (so update/delete/compact/crash buttons
+// still start a narrated example when their scenarios open with writes).
+// Selecting the button starts that scenario.
 
 // --- @core/view-contract (React types) ---
 
