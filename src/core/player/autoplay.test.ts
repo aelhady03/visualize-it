@@ -4,6 +4,8 @@ import {
   AutoplayEngine,
   HARD_TIMEOUT_MS,
   isKeyKind,
+  MAX_READING_MS,
+  MIN_READING_MS,
   readingMs,
 } from "./autoplay";
 
@@ -30,8 +32,10 @@ describe("readingMs", () => {
   it("grows with narration length and stays clamped", () => {
     expect(readingMs("short")).toBeGreaterThan(readingMs("tiny") - 1);
     expect(readingMs("one two three")).toBeGreaterThan(readingMs("short"));
-    expect(readingMs("a b c d e f g h i j k l m n o p q r s t u v w x y z")).toBeLessThanOrEqual(8000);
-    expect(readingMs("x")).toBeGreaterThanOrEqual(1500);
+    expect(readingMs("a b c d e f g h i j k l m n o p q r s t u v w x y z")).toBeLessThanOrEqual(
+      MAX_READING_MS,
+    );
+    expect(readingMs("x")).toBeGreaterThanOrEqual(MIN_READING_MS);
   });
 });
 

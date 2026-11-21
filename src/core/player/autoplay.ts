@@ -21,11 +21,11 @@ import type { Step } from '../engine-contract'
 export const HARD_TIMEOUT_MS = 2000
 
 /** Reading-time floor/ceiling, before dividing by speed. */
-export const MIN_READING_MS = 1500
-export const MAX_READING_MS = 8000
+export const MIN_READING_MS = 600
+export const MAX_READING_MS = 3000
 
 /** Per-word reading rate used for the narration-length-proportional delay. */
-export const MS_PER_WORD = 260
+export const MS_PER_WORD = 120
 
 /**
  * Reading time for one narration, at 1× speed: proportional to the word count,
