@@ -3,7 +3,7 @@
 // playback looked frozen). Exercises the REAL singleton player store, the
 // REAL DiagramPane + StepperControls, and a fake module injected through
 // mocked discovery.
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RunResult, Step } from "@core/engine-contract";
@@ -100,7 +100,13 @@ describe("playback pacing regression", () => {
                 init: () => ({ n: 0, config: { done: false } }),
                 run: () => ({ steps: [], result: { n: 0, config: { done: false } } }),
               },
-              Render: ({ state, onAnimationComplete }) => {
+              Render: ({
+                state,
+                onAnimationComplete,
+              }: {
+                state: unknown;
+                onAnimationComplete: () => void;
+              }) => {
                 useEffect(() => {
                   onAnimationComplete();
                 }, [onAnimationComplete]);
