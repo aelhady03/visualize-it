@@ -388,7 +388,10 @@ export function runCompactLeveled(
             s,
             `The compaction advanced one unit (${job.progress}/${job.total}): its merge stream now holds ${job.output.length} entries, merged in key order with the highest seq winning.`,
             "One unit per operation makes background work observable without ever blocking the foreground op.",
-            pending.inputs.map((id) => ({ id, role: "active" as const })),
+            [
+              ...pending.inputs.map((id) => ({ id, role: "active" as const })),
+              ...job.output.map((e) => ({ id: e.id, role: "active" as const })),
+            ],
           ),
         );
       }
@@ -402,7 +405,9 @@ export function runCompactLeveled(
           "compact.complete",
           s,
           `The compaction finished: ${done.outputs.length} file(s) landed in L${done.outputLevel} (split at ${cfg.targetFileSize}B) and ${finished.inputs.length} input(s) were removed from disk. ${done.keptTombstones} tombstone(s) survived (a lower level still covers their key) and ${done.droppedTombstones} were garbage-collected — deleted keys can never resurrect.`,
-          "Dropping stale versions and eligible tombstones is what keeps disk bytes and read probes bounded.",
+          done.keptTombstones + done.droppedTombstones > 0
+            ? "A tombstone leaves the tree only when no lower level can still hold its key — drop one too early and the deleted value resurrects."
+            : "Dropping stale versions is what keeps disk bytes and read probes bounded.",
           [
             ...finished.inputs.map((id) => ({ id, role: "removed" as const })),
             ...done.outputs.map((f) => ({ id: f.id, role: "new" as const })),
@@ -440,7 +445,10 @@ export function runCompactLeveled(
             s,
             `The merge stream took its first unit: ${job.output.length} merged entries so far, in key order with the highest seq winning.`,
             "Stale versions drop out of the stream as the merge walks the sorted runs.",
-            plan.inputs.map((id) => ({ id, role: "active" as const })),
+            [
+              ...plan.inputs.map((id) => ({ id, role: "active" as const })),
+              ...job.output.map((e) => ({ id: e.id, role: "active" as const })),
+            ],
           ),
         );
       }
@@ -453,7 +461,9 @@ export function runCompactLeveled(
             "compact.complete",
             s,
             `The compaction finished: ${done.outputs.length} file(s) landed in L${done.outputLevel} (split at ${cfg.targetFileSize}B) and ${finished.inputs.length} input(s) were removed from disk. ${done.keptTombstones} tombstone(s) survived (a lower level still covers their key) and ${done.droppedTombstones} were garbage-collected — deleted keys can never resurrect.`,
-            "Dropping stale versions and eligible tombstones is what keeps disk bytes and read probes bounded.",
+            done.keptTombstones + done.droppedTombstones > 0
+              ? "A tombstone leaves the tree only when no lower level can still hold its key — drop one too early and the deleted value resurrects."
+              : "Dropping stale versions is what keeps disk bytes and read probes bounded.",
             [
               ...finished.inputs.map((id) => ({ id, role: "removed" as const })),
               ...done.outputs.map((f) => ({ id: f.id, role: "new" as const })),
@@ -495,6 +505,7 @@ export function runCompactLeveled(
         s,
         `L0 still holds ${s.l0.length} files (at or above l0Trigger ${cfg.l0Trigger}) while a compaction is in flight — a new flush would stall right now.`,
         "Write stalls are where compaction debt becomes user-visible latency: memtable flushes wait until the merge frees L0 space.",
+        s.l0.map((f) => ({ id: f.id, role: "active" as const })),
       ),
     );
   }

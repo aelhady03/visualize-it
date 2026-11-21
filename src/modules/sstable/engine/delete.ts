@@ -71,7 +71,10 @@ export function runDelete(state: EngineState, input: OpInput | undefined): RunRe
       next,
       `A tombstone for "${key}" is appended to the WAL first — a delete is just another write, and the marker is durable before the MemTable changes.`,
       "Deletes never touch existing files: the tombstone is a durable record that outranks every older version by seq.",
-      [{ id: entry.id, role: "new" }],
+      [
+        { id: entry.id, role: "new" },
+        { id: active.walSegment, role: "active" },
+      ],
     ),
   );
 
@@ -83,7 +86,10 @@ export function runDelete(state: EngineState, input: OpInput | undefined): RunRe
       next,
       `The tombstone lands in the active MemTable in sorted key order. Older versions of "${key}" still exist in their files, but the tombstone carries the highest seq — reads will stop at it and report the key as missing.`,
       "Latest wins applies to deletes too: a tombstone is simply the newest version of the key.",
-      [{ id: entry.id, role: "new" }],
+      [
+        { id: entry.id, role: "new" },
+        { id: active.id, role: "active" },
+      ],
     ),
   );
 
@@ -102,6 +108,7 @@ export function runDelete(state: EngineState, input: OpInput | undefined): RunRe
           { id: frozenId, role: "active" },
           { id: next.memtables[0].id, role: "new" },
           { id: next.wal[next.wal.length - 1].id, role: "new" },
+          { id: next.jobs[next.jobs.length - 1].id, role: "new" },
         ],
       ),
     );
@@ -116,6 +123,7 @@ export function runDelete(state: EngineState, input: OpInput | undefined): RunRe
         next,
         "While you ran this delete, background jobs made progress: every job advanced one unit toward completion.",
         "The jobs model makes flushes and compactions real and observable without stalling the write path.",
+        next.jobs.flatMap((j) => j.output.map((e) => ({ id: e.id, role: "active" as const }))),
       ),
     );
     for (const job of next.jobs) {
@@ -144,12 +152,18 @@ export function runDelete(state: EngineState, input: OpInput | undefined): RunRe
 
   // 6. delete.compact.trigger — threshold met (Phase 6 builds the compaction).
   if (next.l0.length >= cfg.l0Trigger) {
+    const compactionInFlight = next.jobs.some((j) => j.kind === "compaction");
     steps.push(
       step(
         "delete.compact.trigger",
         next,
-        `L0 now holds ${next.l0.length} files — at the l0Trigger threshold (${cfg.l0Trigger}). A compaction would trigger here to merge them, drop stale versions, and GC tombstones once no older data for their keys can hide outside the merge.`,
-        "Compaction debt: every flush adds an L0 file a read must probe. Merging them keeps read amplification bounded.",
+        compactionInFlight
+          ? `L0 now holds ${next.l0.length} files — at the l0Trigger threshold (${cfg.l0Trigger}) — while a compaction is still merging. New flushes would have to wait: the delete itself never blocked, but the tree has hit compaction debt.`
+          : `L0 now holds ${next.l0.length} files — at the l0Trigger threshold (${cfg.l0Trigger}). A compaction would merge them, drop stale versions, and GC tombstones once no older data for their keys can hide outside the merge.`,
+        compactionInFlight
+          ? "Writes never block on their own flush, but they do block when L0 fills faster than compaction drains it."
+          : "Compaction debt: every flush adds an L0 file a read must probe. Merging them keeps read amplification bounded.",
+        next.l0.map((f) => ({ id: f.id, role: "active" as const })),
       ),
     );
   }
