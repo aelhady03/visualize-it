@@ -87,6 +87,29 @@ describe('useStepTransition auto-complete', () => {
     expect(spy).toHaveBeenCalledTimes(1)
   })
 
+  it('auto-calls once per STEP for consecutive identical snapshots (new callback per step, no remount)', () => {
+    const spy = vi.fn()
+    const step1 = () => spy('step1')
+    const step2 = () => spy('step2')
+    const { rerender } = renderHook((a) => useStepTransition(a), {
+      initialProps: makeArgs({ state: stateA, prevState: stateA, onAnimationComplete: step1 }),
+    })
+    act(() => {
+      vi.runAllTimers()
+    })
+    // Same snapshot again on the next step: the shell hands a new callback.
+    rerender(makeArgs({ state: stateA, prevState: stateA, onAnimationComplete: step2 }))
+    act(() => {
+      vi.runAllTimers()
+    })
+    // A plain re-render of step 2 (same callback) must not complete again.
+    rerender(makeArgs({ state: stateA, prevState: stateA, onAnimationComplete: step2 }))
+    act(() => {
+      vi.runAllTimers()
+    })
+    expect(spy.mock.calls).toEqual([['step1'], ['step2']])
+  })
+
   it('auto-calls under reduced motion even when snapshots differ', () => {
     const spy = vi.fn()
     const { result } = renderHook(() =>

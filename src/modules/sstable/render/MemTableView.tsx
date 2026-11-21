@@ -21,8 +21,11 @@ import { MEMTABLE_ROW_H, type MemTableViewProps } from "./regions";
 const BADGE_W = 56;
 const CHIP_X = 64;
 const CHIP_W = 76;
-const CELLS_Y = 20;
-const CELL_H = 24;
+// Header (badge + state chip + caption) occupies y 0–18; cells sit below it
+// with a 4px gap and end at 44, inside MEMTABLE_ROW_H (46).
+const HEADER_H = 18;
+const CELLS_Y = HEADER_H + 4;
+const CELL_H = 22;
 const CELL_GAP = 6;
 
 interface PlacedEntry {
@@ -55,9 +58,9 @@ export function MemTableView(props: MemTableViewProps) {
           <g>
             <rect
               x={CHIP_X}
-              y={2}
+              y={0}
               width={CHIP_W}
-              height={22}
+              height={HEADER_H}
               rx={4}
               fill="none"
               stroke="currentColor"
@@ -65,13 +68,13 @@ export function MemTableView(props: MemTableViewProps) {
             />
             <circle
               cx={CHIP_X + 10}
-              cy={13}
+              cy={HEADER_H / 2}
               r={3.5}
               fill={mt.state === "active" ? vizVar("active") : "none"}
               stroke={mt.state === "active" ? "none" : "currentColor"}
               strokeWidth={1.25}
             />
-            <text x={CHIP_X + 18} y={13} dominantBaseline="central" fontSize={10} fill="currentColor">
+            <text x={CHIP_X + 18} y={HEADER_H / 2} dominantBaseline="central" fontSize={10} fill="currentColor">
               {mt.state}
             </text>
           </g>
@@ -81,9 +84,9 @@ export function MemTableView(props: MemTableViewProps) {
           <g key={mt.id} transform={`translate(0, ${rowY})`} data-entity-id={mt.id}>
             <Box
               x={0}
-              y={2}
+              y={0}
               width={BADGE_W}
-              height={22}
+              height={HEADER_H}
               tone="memtable"
               label={mt.id}
               role={roles.get(mt.id)}
@@ -101,7 +104,7 @@ export function MemTableView(props: MemTableViewProps) {
                 {chip}
               </motion.g>
             )}
-            <text x={CHIP_X + CHIP_W + 8} y={14} fontSize={10} fill="currentColor" opacity={0.75}>
+            <text x={CHIP_X + CHIP_W + 8} y={HEADER_H / 2} dominantBaseline="central" fontSize={10} fill="currentColor" opacity={0.75}>
               {`${mt.entries.length} entr${mt.entries.length === 1 ? "y" : "ies"} · WAL ${mt.walSegment}`}
             </text>
 

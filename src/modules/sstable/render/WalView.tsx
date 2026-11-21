@@ -20,6 +20,8 @@ const BADGE_W = 56;
 const CELLS_X = 88;
 const CELL_H = 24;
 const CELL_GAP = 6;
+/** Room reserved for the "empty segment" note (11px text). */
+const EMPTY_NOTE_W = 92;
 const CELL_Y = 1;
 
 interface PlacedCell {
@@ -49,7 +51,12 @@ export function WalView(props: WalViewProps) {
           cursor += w + CELL_GAP;
           return placed;
         });
-        const tailX = cells.length > 0 ? cells[cells.length - 1].x + cells[cells.length - 1].w + CELL_GAP : CELLS_X;
+        // An empty segment shows an "empty segment" note at CELLS_X; the tail
+        // (append arrow + caption) starts after it, not on top of it.
+        const tailX =
+          cells.length > 0
+            ? cells[cells.length - 1].x + cells[cells.length - 1].w + CELL_GAP
+            : CELLS_X + EMPTY_NOTE_W;
         const rowY = row * WAL_ROW_H;
         const midY = CELL_Y + CELL_H / 2;
 
@@ -65,7 +72,17 @@ export function WalView(props: WalViewProps) {
               role={roles.get(segment.id)}
               reducedMotion={reducedMotion}
             />
-            <text x={BADGE_W + 10} y={14} fontSize={10} fill="currentColor" opacity={0.75}>
+            {/* Caption sits at the END of the row (after the append arrow on the
+                active segment) so it can never collide with the cells, which
+                share this single-line row (WAL_ROW_H). */}
+            <text
+              x={(isActive ? tailX + 44 : tailX) + 6}
+              y={midY}
+              dominantBaseline="central"
+              fontSize={10}
+              fill="currentColor"
+              opacity={0.75}
+            >
               {isActive
                 ? `active · next #${seq}`
                 : `${segment.entries.length} record(s) · replayable after a crash`}

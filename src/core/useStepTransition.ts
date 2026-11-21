@@ -129,9 +129,13 @@ export function useStepTransition({
     completeRef.current = onAnimationComplete
   })
 
-  // A stable key for "this exact step transition".
+  // A stable key for "this exact step transition". A step is identified by
+  // the snapshot AND the callback identity: the shell hands every step its
+  // own onAnimationComplete (stable across re-renders of that step), so
+  // consecutive steps with identical snapshots (X -> X -> X, common in read
+  // paths) each auto-complete once, without the Render having to remount.
   const stepKey = nothingToAnimate ? JSON.stringify(state) : null
-  const settledFor = useRef<string | null>(null)
+  const settledFor = useRef<{ key: string; callback: () => void } | null>(null)
 
   useEffect(() => {
     if (!nothingToAnimate || stepKey === null) {
@@ -139,13 +143,14 @@ export function useStepTransition({
       settledFor.current = null
       return
     }
-    if (settledFor.current === stepKey) return // already auto-completed this step
+    const settled = settledFor.current
+    if (settled && settled.key === stepKey && settled.callback === onAnimationComplete) return
     const timer = setTimeout(() => {
-      settledFor.current = stepKey
+      settledFor.current = { key: stepKey, callback: onAnimationComplete }
       completeRef.current()
     }, 0)
     return () => clearTimeout(timer)
-  }, [nothingToAnimate, stepKey])
+  }, [nothingToAnimate, stepKey, onAnimationComplete])
 
   const shift = reducedMotion ? 0 : SHIFT_PX * direction
   const variants: { enter: TargetAndTransition; exit: TargetAndTransition } = {
