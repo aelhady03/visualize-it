@@ -640,6 +640,13 @@ Current status (see each module's `STATUS.md` for detail):
 | append-log | DONE — full module merged; validated contract v1 |
 | hash-index | not started |
 
+**Published v0.1 (2026-11-21):** https://aelhady03.github.io/visualize-it/ —
+GitHub Pages via `.github/workflows/deploy.yml` (build with
+`VITE_BASE=/visualize-it/`, SPA fallback through `404.html`). Wave 4 backlog:
+cross-lane guided scenarios (`update-latest-wins`, tombstone kept/dropped),
+guided-button fallback for ops without a first-op scenario, narration
+harmonization pass, hash-index module.
+
 ## 10. Backlog (nice-to-haves from review)
 
 - Cross-module state URLs: deep-link `?op=&scenario=&step=` for sharing steps.
