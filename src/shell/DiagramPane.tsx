@@ -9,8 +9,13 @@
 // onAnimationComplete straight into the store action so the player advances
 // only when animations settle (PLAN.md §3.1).
 //
-// The wrapper is keyed per step so each step remounts and replays entry
-// animations.
+// The Render stays MOUNTED across steps: modules animate from prevState
+// (new entities enter, layoutIds FLIP) and keep anything unchanged still.
+// Remounting it per step replayed every mount-time animation on every step
+// (state chips faded out and back in, highlight halos re-inked), which read
+// as the previous and next states interleaving. Each step instead gets its
+// own onAnimationComplete identity, which is how useStepTransition and
+// module effects tell consecutive steps apart even when snapshots are equal.
 
 import { useReducedMotion } from 'motion/react'
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -75,6 +80,14 @@ export function DiagramPane({ module }: { module: VizModule<unknown> }) {
   const stepKey = current >= 0 ? `${current}:${step?.kind ?? ''}` : 'initial'
   useFitSvg(stageRef, stepKey)
 
+  // One completion callback per step (and per run: `steps` is a new array for
+  // every run), stable while that step is on screen.
+  const onAnimationComplete = useMemo(() => {
+    void steps
+    void current
+    return () => actions.onAnimationComplete()
+  }, [actions, steps, current])
+
   return (
     <section aria-label={`${module.meta.title} diagram`} className="flex min-w-0 flex-col">
       <div className="flex min-h-9 items-center justify-between gap-3 px-2 pb-2 text-[0.8125rem] text-ink-soft">
@@ -96,7 +109,7 @@ export function DiagramPane({ module }: { module: VizModule<unknown> }) {
         ref={stageRef}
         className="viz-stage relative flex min-h-[16rem] items-center justify-center overflow-auto rounded-[7px] p-3 text-viz-text sm:min-h-[22rem] sm:p-6 md:min-h-[26rem]"
       >
-        <div key={stepKey} className="flex w-full min-w-fit justify-center">
+        <div className="flex w-full min-w-fit justify-center">
           <Render
             state={state}
             prevState={prevState}
@@ -104,7 +117,7 @@ export function DiagramPane({ module }: { module: VizModule<unknown> }) {
             speed={speed}
             reducedMotion={reducedMotion}
             highlights={highlights}
-            onAnimationComplete={() => actions.onAnimationComplete()}
+            onAnimationComplete={onAnimationComplete}
           />
         </div>
       </div>
