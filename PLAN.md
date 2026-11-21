@@ -638,9 +638,9 @@ Current status (see each module's `STATUS.md` for detail):
 
 | Module | Status |
 |--------|--------|
-| sstable | DONE through Wave 3 — all ops merged (write, read, update, delete, crash, bulk, STCS + leveled compaction) with renders, scenarios, 340+ tests; Wave 4 polish pending |
+| sstable | DONE — all ops, renders, scenarios (incl. update-latest-wins + tombstone kept/dropped), narration pass; 397 tests repo-wide |
 | append-log | DONE — full module merged; validated contract v1 |
-| hash-index | not started |
+| hash-index | DONE — Bitcask-style module merged (Wave 4) |
 
 **Published v0.1 (2026-11-21):** https://aelhady03.github.io/visualize-it/ —
 GitHub Pages via `.github/workflows/deploy.yml` (build with

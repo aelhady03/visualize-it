@@ -16,6 +16,7 @@ Live: <https://aelhady03.github.io/visualize-it/>
 | --- | --- |
 | **SSTable / LSM-Tree** | MemTables, write-ahead logs, immutable sorted files, sparse indexes, bloom filters (with real false positives), tombstones, crash recovery, and compaction — both **size-tiered** and **leveled** — with live write/read/space amplification counters |
 | **Append-Only Log** | The simplest durable store: append writes, backward-scans, compaction of stale versions — the foundation every other engine builds on |
+| **Hash Index** | Bitcask-style point lookups: an in-memory hash map over an append-only file — O(1) reads, and why the index lives in RAM |
 
 Each module is one folder (`src/modules/<id>/`) implementing a frozen contract — adding a new engine means writing that folder, nothing else.
 
@@ -44,7 +45,5 @@ The full project plan — architecture, the module contract, the SSTable spec, a
 
 ## Roadmap
 
-- Guided scenarios for update / delete / compaction / crash (`update-latest-wins`, tombstone kept-vs-dropped) so every operation has a narrated tour
-- A Hash Index engine
-- Narration harmonization pass across the SSTable operations
-- Predict-then-reveal prompts, deep-linkable steps
+- Predict-then-reveal prompts ("which file will the read check next?")
+- Deep-linkable steps, a B-tree engine
