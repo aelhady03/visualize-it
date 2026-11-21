@@ -109,6 +109,7 @@ export function runCrash(state: EngineState, input: OpInput | undefined): RunRes
       [
         ...wipedMemtables.map((id): Highlight => ({ id, role: "removed" })),
         ...wipedJobs.map((id): Highlight => ({ id, role: "removed" })),
+        ...state.wal.map((w): Highlight => ({ id: w.id, role: "active" })),
       ],
     ),
   );

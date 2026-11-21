@@ -352,6 +352,7 @@ export function runCompactStcs(
         s,
         "While you ran this compact, background jobs advanced one unit each. The merge stream grows entry by entry as a compaction job folds its input runs together.",
         "Jobs advance 1 unit per user operation — the demo's stand-in for real background I/O progress.",
+        s.jobs.flatMap((j) => j.output.map((e) => ({ id: e.id, role: "active" as const }))),
       ),
     );
 
@@ -384,25 +385,42 @@ export function runCompactStcs(
       if (!s.jobs.some((j) => j.id === job.id)) continue;
       if (job.kind !== "compaction" || job.progress < job.total) continue;
       const inputIds = [...job.inputs];
-      const { dropped } = stcsMergePlan(...((): [SSTable[], SSTable[]] => {
+      const { dropped, output } = stcsMergePlan(...((): [SSTable[], SSTable[]] => {
         const files = compactionJobFiles(job, s);
         return [files.inputs, files.others];
       })());
+      const keptTombstones = output.filter((e) => e.tombstone === true).length;
+      const droppedTombstones = dropped.filter((e) => e.tombstone === true).length;
       const { state: next, newFile } = completeCompactionJob(s, job);
       s = next;
       const highlights: Highlight[] = [
         ...inputIds.map((id) => ({ id, role: "removed" as const })),
-        ...dropped.map((e) => ({ id: e.id, role: "stale" as const })),
+        ...dropped.map((e) => ({
+          id: e.id,
+          role: e.tombstone === true ? ("removed" as const) : ("stale" as const),
+        })),
       ];
       if (newFile) highlights.unshift({ id: newFile.id, role: "new" });
+      const tombstoneNote =
+        droppedTombstones > 0 && keptTombstones > 0
+          ? `${droppedTombstones} tombstone(s) were dropped because nothing older outside the merge can hold their keys, while ${keptTombstones} survived because an older file still might.`
+          : droppedTombstones > 0
+            ? `${droppedTombstones} tombstone(s) were dropped: nothing older outside the merge can hold their keys.`
+            : keptTombstones > 0
+              ? `${keptTombstones} tombstone(s) survived because an older file outside the merge could still hold their key.`
+              : "";
       steps.push(
         step(
           "compact.complete",
           s,
           newFile
-            ? `The merge finished: ${inputIds.length} input files collapsed into one new SSTable, and stale versions plus eligible tombstones dropped out of the stream. Reads now probe one file instead of ${inputIds.length}.`
+            ? tombstoneNote
+              ? `The merge finished: ${inputIds.length} input files collapsed into one new SSTable, so reads now probe one file instead of ${inputIds.length}. ${tombstoneNote}`
+              : `The merge finished: ${inputIds.length} input files collapsed into one new SSTable, and stale versions dropped out of the stream. Reads now probe one file instead of ${inputIds.length}.`
             : `The merge finished: every surviving key was a tombstone that GC could drop, so all ${inputIds.length} input files were consumed and nothing was written back.`,
-          "One merged run replaces N overlapping ones, so read amplification drops — that is the payoff of compaction.",
+          tombstoneNote
+            ? "A tombstone can leave the tree only when the merge proves nothing older can hold its key — drop one too early and the deleted value resurrects."
+            : "One merged run replaces N overlapping ones, so read amplification drops — that is the payoff of compaction.",
           highlights,
         ),
       );
@@ -450,6 +468,7 @@ export function runCompactStcs(
         s,
         `L0 is at the l0Trigger threshold (${cfg.l0Trigger} files) while a compaction job is still in flight — new flushes would have to wait. Compaction debt: when merges can't keep up with writes, the write path stalls.`,
         "Writes never block on their own flush, but they do block when L0 fills faster than compaction drains it.",
+        s.l0.map((f) => ({ id: f.id, role: "active" as const })),
       ),
     );
   }

@@ -122,7 +122,10 @@ export function runWrite(input: OpInput | undefined, prev: EngineState): RunResu
       state,
       `The record for "${key}" is appended to the active WAL segment before anything else — durability first; the WAL is what makes an in-memory write survive a crash.`,
       "Write-ahead logging: the log entry hits durable storage before the MemTable changes.",
-      [{ id: entry.id, role: "new" }],
+      [
+        { id: entry.id, role: "new" },
+        { id: active.walSegment, role: "active" },
+      ],
     ),
   );
 
@@ -133,8 +136,11 @@ export function runWrite(input: OpInput | undefined, prev: EngineState): RunResu
       "memtable.insert",
       state,
       `The entry lands in the active MemTable in sorted key order — reads see it immediately. Each write gets the next sequence number, and the highest seq always wins.`,
-      undefined,
-      [{ id: entry.id, role: "new" }],
+      "The MemTable is the newest layer of the tree: reads check it first, so this write is visible to the very next read, before it ever touches disk.",
+      [
+        { id: entry.id, role: "new" },
+        { id: active.id, role: "active" },
+      ],
     ),
   );
 
@@ -153,6 +159,7 @@ export function runWrite(input: OpInput | undefined, prev: EngineState): RunResu
           { id: frozenId, role: "active" },
           { id: state.memtables[0].id, role: "new" },
           { id: state.wal[state.wal.length - 1].id, role: "new" },
+          { id: state.jobs[state.jobs.length - 1].id, role: "new" },
         ],
       ),
     );
@@ -167,6 +174,7 @@ export function runWrite(input: OpInput | undefined, prev: EngineState): RunResu
         state,
         "While you ran this write, background jobs made progress: every job advanced one unit toward completion.",
         "The jobs model makes flushes and compactions real and observable without stalling the write path.",
+        state.jobs.flatMap((j) => j.output.map((e) => ({ id: e.id, role: "active" as const }))),
       ),
     );
     for (const job of state.jobs) {
@@ -195,12 +203,18 @@ export function runWrite(input: OpInput | undefined, prev: EngineState): RunResu
 
   // 6. compact.trigger — threshold met (Phase 6 builds the compaction itself).
   if (state.l0.length >= cfg.l0Trigger) {
+    const compactionInFlight = state.jobs.some((j) => j.kind === "compaction");
     steps.push(
       step(
         "compact.trigger",
         state,
-        `L0 now holds ${state.l0.length} files — at the l0Trigger threshold (${cfg.l0Trigger}). A compaction would trigger here to merge them; the compaction engine lands in Phase 6.`,
-        "Compaction debt: every flush adds an L0 file a read must probe. Merging them keeps read amplification bounded.",
+        compactionInFlight
+          ? `L0 now holds ${state.l0.length} files — at the l0Trigger threshold (${cfg.l0Trigger}) — while a compaction is still merging. New flushes would have to wait: compaction debt has caught up with the write path.`
+          : `L0 now holds ${state.l0.length} files — at the l0Trigger threshold (${cfg.l0Trigger}). A compaction would merge them into fewer files next, because every L0 file a read must probe is read amplification.`,
+        compactionInFlight
+          ? "Writes never block on their own flush, but they do block when L0 fills faster than compaction drains it."
+          : "Compaction debt: every flush adds an L0 file a read must probe. Merging them keeps read amplification bounded.",
+        state.l0.map((f) => ({ id: f.id, role: "active" as const })),
       ),
     );
   }

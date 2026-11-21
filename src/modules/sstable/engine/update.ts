@@ -126,7 +126,11 @@ export function runUpdate(state: EngineState, input: OpInput | undefined): RunRe
       next,
       `"${key}" is no longer in the MemTable, so the new version is written as a fresh entry — the old value stays untouched in its immutable file, and the higher seq wins at read time.`,
       "SSTables are immutable: updates never modify old files, they only stack newer versions on top.",
-      [{ id: entry.id, role: "new" }, ...staleHighlight],
+      [
+        { id: entry.id, role: "new" },
+        ...staleHighlight,
+        { id: active.id, role: "active" },
+      ],
     ),
   );
 
@@ -145,6 +149,7 @@ export function runUpdate(state: EngineState, input: OpInput | undefined): RunRe
           { id: frozenId, role: "active" },
           { id: next.memtables[0].id, role: "new" },
           { id: next.wal[next.wal.length - 1].id, role: "new" },
+          { id: next.jobs[next.jobs.length - 1].id, role: "new" },
         ],
       ),
     );
@@ -159,6 +164,7 @@ export function runUpdate(state: EngineState, input: OpInput | undefined): RunRe
         next,
         "While you ran this update, background jobs made progress: every job advanced one unit toward completion.",
         "The jobs model makes flushes and compactions real and observable without stalling the write path.",
+        next.jobs.flatMap((j) => j.output.map((e) => ({ id: e.id, role: "active" as const }))),
       ),
     );
     for (const job of next.jobs) {
@@ -187,12 +193,18 @@ export function runUpdate(state: EngineState, input: OpInput | undefined): RunRe
 
   // 6. update.compact.trigger — threshold met (Phase 6 builds the compaction).
   if (next.l0.length >= cfg.l0Trigger) {
+    const compactionInFlight = next.jobs.some((j) => j.kind === "compaction");
     steps.push(
       step(
         "update.compact.trigger",
         next,
-        `L0 now holds ${next.l0.length} files — at the l0Trigger threshold (${cfg.l0Trigger}). A compaction would trigger here to merge them and drop stale versions; the compaction engine lands in Phase 6.`,
-        "Compaction debt: every flush adds an L0 file a read must probe. Merging them keeps read amplification bounded.",
+        compactionInFlight
+          ? `L0 now holds ${next.l0.length} files — at the l0Trigger threshold (${cfg.l0Trigger}) — while a compaction is still merging. New flushes would have to wait: the update never blocked on disk I/O, but compaction debt can still slow down writes.`
+          : `L0 now holds ${next.l0.length} files — at the l0Trigger threshold (${cfg.l0Trigger}). A compaction would merge them and drop the stale versions this update just left behind.`,
+        compactionInFlight
+          ? "Writes never block on their own flush, but they do block when L0 fills faster than compaction drains it."
+          : "Compaction debt: every flush adds an L0 file a read must probe. Merging them keeps read amplification bounded.",
+        next.l0.map((f) => ({ id: f.id, role: "active" as const })),
       ),
     );
   }

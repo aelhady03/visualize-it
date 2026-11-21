@@ -263,15 +263,19 @@ export function runRead(state: EngineState, input: OpInput | undefined): RunResu
         "read.memtable-active",
         `"${key}" is in the active MemTable — the newest version by construction, since every write lands in memory first. The read stops here.`,
         "Reads start at the newest data and stop at the first hit: memtables always sit above the SSTables.",
-        [readkeyHl(), { id: hit.id, role: "hit" }],
+        [
+          readkeyHl(),
+          { id: active.id, role: "hit" },
+          { id: hit.id, role: "hit" },
+        ],
       );
       return finish(hit, null);
     }
     push(
       "read.memtable-active",
       `The active MemTable has no "${key}" — the read moves on to older data.`,
-      undefined,
-      [readkeyHl()],
+      "The MemTable is only the newest layer: a miss here means the key, if it exists at all, lives in the frozen tables or the files below.",
+      [readkeyHl(), { id: active.id, role: "miss" }],
     );
   }
 
@@ -284,15 +288,19 @@ export function runRead(state: EngineState, input: OpInput | undefined): RunResu
         "read.memtable-immutable",
         `"${key}" lives in an immutable MemTable that is still being flushed. The frozen table stays readable until its background flush finishes — and this hit is final, because files only hold older data.`,
         "A freeze queues a flush instead of blocking writes; reads can still see the frozen table for as long as the job runs.",
-        [readkeyHl(), { id: hit.id, role: "hit" }],
+        [
+          readkeyHl(),
+          { id: mt.id, role: "hit" },
+          { id: hit.id, role: "hit" },
+        ],
       );
       return finish(hit, null);
     }
     push(
       "read.memtable-immutable",
-      `The immutable MemTable holds no "${key}" either.`,
-      undefined,
-      [readkeyHl()],
+      `The immutable MemTable ${mt.id} holds no "${key}" either.`,
+      "Frozen tables stay readable during a flush; a miss there sends the read down to the files on disk.",
+      [readkeyHl(), { id: mt.id, role: "miss" }],
     );
   }
 
@@ -327,7 +335,7 @@ export function runRead(state: EngineState, input: OpInput | undefined): RunResu
       push(
         "read.bloom-false-positive",
         `File ${candidate.file.id}'s bloom filter said "maybe" for "${key}", but no block covers it — a false positive. The read keeps probing the next file.`,
-        undefined,
+        "False positives are the price of a tiny filter: a “maybe” must always be confirmed against the index and a real block scan.",
         [readkeyHl(), { id: candidate.file.id, role: "miss" }],
       );
       continue;
