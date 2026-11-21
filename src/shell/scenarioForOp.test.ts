@@ -21,9 +21,10 @@ describe("scenarioForOp", () => {
     expect(scenarioForOp(scenarios, writeOp)?.id).toBe("write");
   });
 
-  it("falls back to the scenario whose first op matches", () => {
-    const noIdMatch = scenarios.filter((x) => x.id !== "read");
-    expect(scenarioForOp(noIdMatch, writeOp)?.id).toBe("write-then-read");
+  it("falls back to the scenario whose first op matches (first in array order)", () => {
+    const noIdMatch = scenarios.filter((x) => x.id !== "write");
+    // update-immutability comes first and also opens with write.
+    expect(scenarioForOp(noIdMatch, writeOp)?.id).toBe("update-immutability");
   });
 
   it("falls back to any scenario containing the op (update opens with write)", () => {
