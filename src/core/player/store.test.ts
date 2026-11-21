@@ -436,9 +436,9 @@ describe("autoplay through the store", () => {
     vi.advanceTimersByTime(1999);
     expect(store.getState().index).toBe(0);
 
-    // Animation completes: the reading timer starts (2 words → 1200 + 2*260 = 1720 ms).
+    // Animation completes: the reading timer starts (2 words → 1200 + 2*120 = 1440 ms).
     store.getState().actions.onAnimationComplete();
-    vi.advanceTimersByTime(1719);
+    vi.advanceTimersByTime(1439);
     expect(store.getState().index).toBe(0);
     vi.advanceTimersByTime(1);
     // Advanced into the "flush.*" step — a key kind → autoplay pauses there.
